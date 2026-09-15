@@ -37,6 +37,9 @@ jobs:
       - name: Run offline finance tests
         run: lua5.1 tests/offline_finance_tests.lua
 
+      - name: Run offline invariant matrix
+        run: lua5.1 tests/offline_invariant_tests.lua
+
       - name: Run offline asset model tests
         run: lua5.1 tests/offline_asset_tests.lua
 
