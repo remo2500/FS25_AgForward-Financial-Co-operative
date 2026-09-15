@@ -21,13 +21,17 @@ function AgForwardFinance:loadMap(mapName)
     local ledger = AGFLedger.new(idService)
     local redTapeAdapter = AGFRedTapeAdapter.new()
     local settlement = AGFSettlementCoordinator.new(services)
+    local saveService = AGFSaveService.new(services)
 
     services:register("idService", idService)
     services:register("ledger", ledger)
     services:register("redTape", redTapeAdapter)
     services:register("settlement", settlement)
+    services:register("save", saveService)
 
     redTapeAdapter:detect()
+    saveService:installSaveHook()
+    saveService:load()
 
     AgForwardFinance.services = services
     AgForwardFinance.initialized = true
@@ -36,7 +40,12 @@ function AgForwardFinance:loadMap(mapName)
         g_messageCenter:subscribe(MessageType.PERIOD_CHANGED, self.onPeriodChanged, self)
     end
 
-    print(string.format("AgForward: initialized (Red Tape: %s)", tostring(redTapeAdapter:getStatus())))
+    print(string.format(
+        "AgForward: initialized (Red Tape: %s, ledger transactions: %d, save: %s)",
+        tostring(redTapeAdapter:getStatus()),
+        ledger:getTransactionCount(),
+        tostring(saveService.lastLoadStatus)
+    ))
 end
 
 function AgForwardFinance:onPeriodChanged()
@@ -67,6 +76,13 @@ function AgForwardFinance:update(dt)
 end
 
 function AgForwardFinance:draw()
+end
+
+function AgForwardFinance.getService(name)
+    if AgForwardFinance.services == nil then
+        return nil
+    end
+    return AgForwardFinance.services:get(name)
 end
 
 local agForwardFinanceListener = AgForwardFinance.new()
