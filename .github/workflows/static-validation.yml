@@ -52,6 +52,9 @@ jobs:
       - name: Run project finance and variable-rate tests
         run: lua5.1 tests/offline_project_rate_tests.lua
 
+      - name: Run product and accounting contract tests
+        run: lua5.1 tests/offline_contract_tests.lua
+
       - name: Run offline asset model tests
         run: lua5.1 tests/offline_asset_tests.lua
 
