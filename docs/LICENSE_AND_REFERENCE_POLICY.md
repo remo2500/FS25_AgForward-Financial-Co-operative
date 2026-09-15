@@ -44,4 +44,6 @@ Adapters may detect and interoperate with external mods through available global
 
 ## Project license
 
-A final license for AgForward itself has not yet been selected. Until that decision is made, do not add a third-party-derived LICENSE file or state redistribution terms that have not been explicitly approved by the project owner.
+The repository was created with the **MIT License**, copyright (c) 2026 remo2500. That repository license governs original AgForward code and documentation unless the project owner deliberately changes it later.
+
+The MIT license on AgForward does **not** grant rights to third-party reference code or assets. Only original AgForward work and material that is independently licensed for inclusion may be committed to this repository.
