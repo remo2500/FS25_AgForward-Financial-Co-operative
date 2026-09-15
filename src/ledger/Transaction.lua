@@ -13,7 +13,7 @@ function AGFTransaction.new(id, farmId, transactionType, amount)
     self.groupId = nil
     self.farmId = farmId
     self.transactionType = transactionType
-    self.amount = tonumber(amount) or 0
+    self.amount = AGFCurrency.round(amount or 0)
     self.principal = 0
     self.interest = 0
     self.fees = 0
@@ -25,54 +25,72 @@ function AGFTransaction.new(id, farmId, transactionType, amount)
     self.year = nil
     self.description = nil
     self.metadata = {}
+    self._sealed = false
     return self
 end
 
+function AGFTransaction:isSealed()
+    return self._sealed == true
+end
+
+function AGFTransaction:seal()
+    self._sealed = true
+    return self
+end
+
+function AGFTransaction:canEdit()
+    return self._sealed ~= true
+end
+
 function AGFTransaction:setGroupId(groupId)
-    self.groupId = groupId
+    if self:canEdit() then self.groupId = groupId end
     return self
 end
 
 function AGFTransaction:setBreakdown(principal, interest, fees)
-    self.principal = tonumber(principal) or 0
-    self.interest = tonumber(interest) or 0
-    self.fees = tonumber(fees) or 0
+    if self:canEdit() then
+        self.principal = AGFCurrency.round(principal or 0)
+        self.interest = AGFCurrency.round(interest or 0)
+        self.fees = AGFCurrency.round(fees or 0)
+    end
     return self
 end
 
 function AGFTransaction:setExpenseCategory(category)
-    self.expenseCategory = category
+    if self:canEdit() then self.expenseCategory = category end
     return self
 end
 
 function AGFTransaction:setFundingSource(source)
-    self.fundingSource = source
+    if self:canEdit() then self.fundingSource = source end
     return self
 end
 
 function AGFTransaction:setAssetId(assetId)
-    self.assetId = assetId
+    if self:canEdit() then self.assetId = assetId end
     return self
 end
 
 function AGFTransaction:setLiabilityId(liabilityId)
-    self.liabilityId = liabilityId
+    if self:canEdit() then self.liabilityId = liabilityId end
     return self
 end
 
 function AGFTransaction:setPeriod(year, period)
-    self.year = year
-    self.period = period
+    if self:canEdit() then
+        self.year = year
+        self.period = period
+    end
     return self
 end
 
 function AGFTransaction:setDescription(description)
-    self.description = description
+    if self:canEdit() then self.description = description end
     return self
 end
 
 function AGFTransaction:setMetadata(key, value)
-    if key ~= nil then
+    if self:canEdit() and key ~= nil then
         if value == nil then
             self.metadata[tostring(key)] = nil
         else
@@ -82,14 +100,35 @@ function AGFTransaction:setMetadata(key, value)
     return self
 end
 
+function AGFTransaction:clone()
+    local copy = AGFTransaction.new(self.id, self.farmId, self.transactionType, self.amount)
+    copy.groupId = self.groupId
+    copy.principal = self.principal
+    copy.interest = self.interest
+    copy.fees = self.fees
+    copy.expenseCategory = self.expenseCategory
+    copy.fundingSource = self.fundingSource
+    copy.assetId = self.assetId
+    copy.liabilityId = self.liabilityId
+    copy.period = self.period
+    copy.year = self.year
+    copy.description = self.description
+    copy.metadata = {}
+    for key, value in pairs(self.metadata or {}) do
+        copy.metadata[key] = value
+    end
+    copy._sealed = self._sealed
+    return copy
+end
+
 function AGFTransaction:saveToXMLFile(xmlFile, key)
     setXMLString(xmlFile, key .. "#id", tostring(self.id))
     setXMLInt(xmlFile, key .. "#farmId", tonumber(self.farmId) or 0)
     setXMLString(xmlFile, key .. "#type", tostring(self.transactionType or AGFTransactionType.ADJUSTMENT))
-    setXMLFloat(xmlFile, key .. "#amount", tonumber(self.amount) or 0)
-    setXMLFloat(xmlFile, key .. "#principal", tonumber(self.principal) or 0)
-    setXMLFloat(xmlFile, key .. "#interest", tonumber(self.interest) or 0)
-    setXMLFloat(xmlFile, key .. "#fees", tonumber(self.fees) or 0)
+    setXMLFloat(xmlFile, key .. "#amount", AGFCurrency.round(self.amount or 0))
+    setXMLFloat(xmlFile, key .. "#principal", AGFCurrency.round(self.principal or 0))
+    setXMLFloat(xmlFile, key .. "#interest", AGFCurrency.round(self.interest or 0))
+    setXMLFloat(xmlFile, key .. "#fees", AGFCurrency.round(self.fees or 0))
 
     setOptionalString(xmlFile, key .. "#groupId", self.groupId)
     setOptionalString(xmlFile, key .. "#expenseCategory", self.expenseCategory)
@@ -98,12 +137,8 @@ function AGFTransaction:saveToXMLFile(xmlFile, key)
     setOptionalString(xmlFile, key .. "#liabilityId", self.liabilityId)
     setOptionalString(xmlFile, key .. "#description", self.description)
 
-    if self.period ~= nil then
-        setXMLInt(xmlFile, key .. "#period", tonumber(self.period) or 0)
-    end
-    if self.year ~= nil then
-        setXMLInt(xmlFile, key .. "#year", tonumber(self.year) or 0)
-    end
+    if self.period ~= nil then setXMLInt(xmlFile, key .. "#period", tonumber(self.period) or 0) end
+    if self.year ~= nil then setXMLInt(xmlFile, key .. "#year", tonumber(self.year) or 0) end
 
     local metadataKeys = {}
     for metadataKey, _ in pairs(self.metadata or {}) do
@@ -129,9 +164,9 @@ function AGFTransaction.loadFromXMLFile(xmlFile, key)
     local amount = getXMLFloat(xmlFile, key .. "#amount") or 0
 
     local transaction = AGFTransaction.new(id, farmId, transactionType, amount)
-    transaction.principal = getXMLFloat(xmlFile, key .. "#principal") or 0
-    transaction.interest = getXMLFloat(xmlFile, key .. "#interest") or 0
-    transaction.fees = getXMLFloat(xmlFile, key .. "#fees") or 0
+    transaction.principal = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#principal") or 0)
+    transaction.interest = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#interest") or 0)
+    transaction.fees = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#fees") or 0)
     transaction.groupId = getXMLString(xmlFile, key .. "#groupId")
     transaction.expenseCategory = getXMLString(xmlFile, key .. "#expenseCategory")
     transaction.fundingSource = getXMLString(xmlFile, key .. "#fundingSource")
@@ -153,7 +188,6 @@ function AGFTransaction.loadFromXMLFile(xmlFile, key)
         if metadataKey ~= nil then
             transaction.metadata[metadataKey] = metadataValue or ""
         end
-
         metadataIndex = metadataIndex + 1
     end
 
