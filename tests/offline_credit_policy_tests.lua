@@ -70,15 +70,17 @@ assertTrue(declinedOk, "decline policy evaluation runs")
 assertEqual(declined.status, AGFCreditDecisionStatus.DECLINE, "hard coverage/LTV breaches decline")
 assertEqual(#declined.declineReasons, 2, "two decline reasons preserved")
 
+-- Missing metrics default to referral rather than being silently treated as zero.
 local missingOk, missing = AGFCreditPolicyService.evaluate({
     ltv = 0.60,
     currentRatio = 1.30,
     debtToAssets = 0.40
 }, policy, {dataQuality = "complete"})
 assertTrue(missingOk, "missing metric evaluation runs")
-assertEqual(missing.status, AGFCreditDecisionStatus.DECLINE, "missing DSCR inherits rule missing severity default decline? no")
+assertEqual(missing.status, AGFCreditDecisionStatus.REFER, "missing DSCR is referred")
+assertEqual(missing.failedRules[1].reason, "MISSING_METRIC", "missing DSCR reason")
 
--- Explicit missing severity can refer rather than treat missing data as zero.
+-- Explicit missing severity remains independently configurable.
 local missingPolicy = {
     rules = {
         {id = "minDSCR", metric = "dscr", comparator = "min", value = 1.25, severity = AGFCreditRuleSeverity.DECLINE, missingSeverity = AGFCreditRuleSeverity.REFER}
