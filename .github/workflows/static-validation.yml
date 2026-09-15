@@ -39,3 +39,6 @@ jobs:
 
       - name: Run offline asset model tests
         run: lua5.1 tests/offline_asset_tests.lua
+
+      - name: Run offline policy and protocol tests
+        run: lua5.1 tests/offline_policy_tests.lua
