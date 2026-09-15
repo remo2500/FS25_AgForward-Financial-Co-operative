@@ -19,21 +19,27 @@ function AgForwardFinance:loadMap(mapName)
     local services = AGFServiceContainer.new()
     local idService = AGFIdService.new()
     local ledger = AGFLedger.new(idService)
+    local accounting = AGFAccountingService.new(ledger)
     local redTapeAdapter = AGFRedTapeAdapter.new()
     local settlement = AGFSettlementCoordinator.new(services)
     local saveService = AGFSaveService.new(services)
 
     services:register("idService", idService)
     services:register("ledger", ledger)
+    services:register("accounting", accounting)
     services:register("redTape", redTapeAdapter)
     services:register("settlement", settlement)
     services:register("save", saveService)
 
     redTapeAdapter:detect()
+
+    -- Expose services before the save hook is installed so any subsequent
+    -- mission save can always resolve the active AgForward save service.
+    AgForwardFinance.services = services
+
     saveService:installSaveHook()
     saveService:load()
 
-    AgForwardFinance.services = services
     AgForwardFinance.initialized = true
 
     if g_messageCenter ~= nil then
