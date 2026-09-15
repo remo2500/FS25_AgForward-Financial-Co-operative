@@ -7,36 +7,46 @@ AgForwardFinance.initialized = false
 local AgForwardFinance_mt = Class(AgForwardFinance)
 
 function AgForwardFinance.new()
-    local self = setmetatable({}, AgForwardFinance_mt)
-    return self
+    return setmetatable({}, AgForwardFinance_mt)
 end
 
 function AgForwardFinance:loadMap(mapName)
-    if AgForwardFinance.initialized then
-        return
-    end
+    if AgForwardFinance.initialized then return end
 
     local services = AGFServiceContainer.new()
+    local runtimeState = AGFRuntimeStateService.new()
     local idService = AGFIdService.new()
-    local ledger = AGFLedger.new(idService)
-    local liabilities = AGFLiabilityRegistry.new(idService)
-    local accounting = AGFAccountingService.new(ledger, liabilities)
+    local ledger = AGFLedger.new(idService, runtimeState)
+    local liabilities = AGFLiabilityRegistry.new(idService, runtimeState)
+    local operations = AGFFinancialOperationCoordinator.new(ledger, liabilities, runtimeState)
+    local accounting = AGFAccountingService.new(ledger, liabilities, operations, runtimeState)
+    local classifier = AGFPurchaseClassificationService.new()
+    local accumulator = AGFInputPurchaseAccumulator.new()
+    local compatibility = AGFCompatibilityService.new(runtimeState)
     local redTapeAdapter = AGFRedTapeAdapter.new()
     local settlement = AGFSettlementCoordinator.new(services)
+    local integrity = AGFIntegrityService.new(services)
     local saveService = AGFSaveService.new(services)
 
+    services:register("runtimeState", runtimeState)
     services:register("idService", idService)
     services:register("ledger", ledger)
     services:register("liabilities", liabilities)
+    services:register("operations", operations)
     services:register("accounting", accounting)
+    services:register("purchaseClassifier", classifier)
+    services:register("inputAccumulator", accumulator)
+    services:register("compatibility", compatibility)
     services:register("redTape", redTapeAdapter)
     services:register("settlement", settlement)
+    services:register("integrity", integrity)
     services:register("save", saveService)
 
+    compatibility:detect()
     redTapeAdapter:detect()
 
-    -- Expose services before the save hook is installed so any subsequent
-    -- mission save can always resolve the active AgForward save service.
+    -- Expose services before save-hook installation so appended save callbacks
+    -- can always resolve the active mission-scoped AgForward services.
     AgForwardFinance.services = services
 
     saveService:installSaveHook()
@@ -49,7 +59,8 @@ function AgForwardFinance:loadMap(mapName)
     end
 
     print(string.format(
-        "AgForward: initialized (Red Tape: %s, liabilities: %d, ledger transactions: %d, save: %s)",
+        "AgForward: initialized (state: %s, Red Tape: %s, liabilities: %d, ledger transactions: %d, save: %s)",
+        tostring(runtimeState:getState()),
         tostring(redTapeAdapter:getStatus()),
         #liabilities:getAll(),
         ledger:getTransactionCount(),
@@ -58,22 +69,17 @@ function AgForwardFinance:loadMap(mapName)
 end
 
 function AgForwardFinance:onPeriodChanged()
-    if AgForwardFinance.services == nil then
-        return
-    end
-
+    if AgForwardFinance.services == nil then return end
     local settlement = AgForwardFinance.services:get("settlement")
-    if settlement ~= nil then
-        settlement:runPeriodSettlement()
-    end
+    if settlement ~= nil then settlement:runPeriodSettlement() end
 end
 
 function AgForwardFinance:deleteMap()
-    if g_messageCenter ~= nil then
-        g_messageCenter:unsubscribeAll(self)
-    end
+    if g_messageCenter ~= nil then g_messageCenter:unsubscribeAll(self) end
 
     if AgForwardFinance.services ~= nil then
+        local runtimeState = AgForwardFinance.services:get("runtimeState")
+        if runtimeState ~= nil then runtimeState:setState(AGFRuntimeState.SHUTDOWN, "MISSION_UNLOAD") end
         AgForwardFinance.services:clear()
     end
 
@@ -88,9 +94,7 @@ function AgForwardFinance:draw()
 end
 
 function AgForwardFinance.getService(name)
-    if AgForwardFinance.services == nil then
-        return nil
-    end
+    if AgForwardFinance.services == nil then return nil end
     return AgForwardFinance.services:get(name)
 end
 
