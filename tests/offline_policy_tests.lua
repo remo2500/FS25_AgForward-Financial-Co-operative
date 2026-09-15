@@ -1,5 +1,5 @@
--- Offline validation for reservations, underwriting, leases, delinquency, and
--- multiplayer protocol state. No FS25 runtime hooks are exercised.
+-- Offline validation for reservations, underwriting, leases, delinquency, settlement,
+-- and multiplayer protocol state. No FS25 runtime hooks are exercised.
 
 function Class(classTable)
     return {__index = classTable}
@@ -14,6 +14,7 @@ dofile("src/finance/RateConvention.lua")
 dofile("src/finance/RatePricingService.lua")
 dofile("src/finance/AmortizationService.lua")
 dofile("src/finance/LoanQuoteService.lua")
+dofile("src/finance/PaymentAllocationService.lua")
 dofile("src/credit/CreditMetrics.lua")
 dofile("src/credit/ProFormaUnderwritingService.lua")
 dofile("src/liabilities/Liability.lua")
@@ -21,6 +22,7 @@ dofile("src/input/CreditReservationService.lua")
 dofile("src/leasing/Lease.lua")
 dofile("src/leasing/LeaseRegistry.lua")
 dofile("src/delinquency/DelinquencyStateMachine.lua")
+dofile("src/settlement/SettlementPlanner.lua")
 dofile("src/network/FinancialProtocolState.lua")
 
 local function assertEqual(actual, expected, message)
@@ -104,6 +106,28 @@ assertTrue(projection.after.totalLiabilities > projection.before.totalLiabilitie
 assertTrue(projection.after.workingCapital < projection.before.workingCapital, "down payment reduces working capital")
 assertTrue(projection.after.dscr < projection.before.dscr, "new debt service lowers DSCR")
 
+-- Payment allocation keeps fees, interest, and principal separately auditable.
+local allocationOk, allocation = AGFPaymentAllocationService.allocate(1500, {
+    principal = 10000,
+    interest = 800,
+    fees = 200
+})
+assertTrue(allocationOk, "payment allocation succeeds")
+assertEqual(allocation.appliedFees, 200, "fees paid first")
+assertEqual(allocation.appliedInterest, 800, "interest paid second")
+assertEqual(allocation.appliedPrincipal, 500, "remaining payment to principal")
+assertEqual(allocation.principalAfter, 9500, "principal after allocation")
+assertEqual(allocation.unappliedAmount, 0, "no unapplied allocation")
+
+local payoffAllocationOk, payoffAllocation = AGFPaymentAllocationService.allocate(12000, {
+    principal = 10000,
+    interest = 800,
+    fees = 200
+})
+assertTrue(payoffAllocationOk, "overpayment allocation succeeds")
+assertEqual(payoffAllocation.totalOutstandingAfter, 0, "full payoff clears components")
+assertEqual(payoffAllocation.unappliedAmount, 1000, "excess remains unapplied")
+
 -- Lease registry creates fixed-charge obligations without owned-debt semantics.
 local leases = AGFLeaseRegistry.new(ids, writableRuntime, nil)
 local lease, leaseError = leases:create("AGF-ASSET-000900", AGFLeaseType.FARMLAND, 1, 5000, 36, "Quarter lease")
@@ -141,6 +165,26 @@ local fullCureOk = AGFDelinquencyStateMachine.applyCurePayment(delinquency, 1500
 assertTrue(fullCureOk, "full cure applied")
 assertEqual(delinquency.state, AGFDelinquencyState.CURRENT, "full cure returns current")
 assertEqual(delinquency.missedPayments, 0, "full cure clears missed-payment count")
+
+-- Settlement planning is deterministic and separates planning from execution.
+local settlementOk, settlement = AGFSettlementPlanner.plan({
+    {id = "LEASE-1", obligationType = "leaseRent", priority = 20, amountDue = 2000, minimumPayment = 2000, allowPartial = false, allowCreditDraw = false},
+    {id = "LOAN-1", obligationType = "securedDebt", priority = 10, amountDue = 5000, minimumPayment = 2500, allowPartial = true, allowCreditDraw = true},
+    {id = "LOAN-2", obligationType = "termDebt", priority = 30, amountDue = 3000, minimumPayment = 3000, allowPartial = false, allowCreditDraw = true}
+}, 4000, 5000)
+assertTrue(settlementOk, "settlement plan succeeds")
+assertEqual(settlement.allocations[1].obligationId, "LOAN-1", "priority 10 first")
+assertEqual(settlement.allocations[1].paid, 5000, "first obligation fully paid")
+assertEqual(settlement.allocations[1].cashUsed, 4000, "cash used before credit")
+assertEqual(settlement.allocations[1].creditDraw, 1000, "authorized credit draw fills first obligation")
+assertEqual(settlement.allocations[2].obligationId, "LEASE-1", "priority 20 second")
+assertEqual(settlement.allocations[2].paid, 0, "lease cannot use credit and no cash remains")
+assertEqual(settlement.allocations[3].obligationId, "LOAN-2", "priority 30 third")
+assertEqual(settlement.allocations[3].paid, 3000, "remaining authorized credit pays term obligation")
+assertEqual(settlement.totalCreditDraw, 4000, "settlement total credit draw")
+assertEqual(settlement.totalPaid, 8000, "settlement total paid")
+assertEqual(settlement.totalUnpaid, 2000, "settlement unpaid amount")
+assertEqual(settlement.endingOptionalCredit, 1000, "remaining optional credit")
 
 -- Multiplayer request model is revision checked and idempotent.
 local protocol = AGFFinancialProtocolState.new(ids, 16)
