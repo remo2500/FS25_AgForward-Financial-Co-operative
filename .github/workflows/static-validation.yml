@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - phase0-foundation-hardening
+      - offline-foundations
   pull_request:
 
 permissions:
@@ -24,3 +25,17 @@ jobs:
 
       - name: Validate repository structure
         run: python tools/validate_repository.py
+
+      - name: Install Lua 5.1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1
+
+      - name: Check Lua syntax
+        run: find src -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
+
+      - name: Run offline finance tests
+        run: lua5.1 tests/offline_finance_tests.lua
+
+      - name: Run offline asset model tests
+        run: lua5.1 tests/offline_asset_tests.lua
