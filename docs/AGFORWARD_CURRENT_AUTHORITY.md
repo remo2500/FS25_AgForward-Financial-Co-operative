@@ -3,9 +3,9 @@
 **Project:** AgForward Financial Cooperative  
 **Public brand:** AgForward  
 **Repository:** `remo2500/FS25_AgForward-Financial-Co-operative`  
-**Authority revision:** A002  
+**Authority revision:** A003  
 **Date:** 2026-09-15  
-**Status:** ACTIVE — Phase 0 foundation / persistence implementation underway
+**Status:** ACTIVE — Phase 0 persistence/liability foundation implemented; runtime validation pending
 
 This document is the governing coordination file for AgForward. When another project document conflicts with this file, this file controls until deliberately revised.
 
@@ -144,7 +144,33 @@ AgForward's native ledger uses the following conventions:
 
 The canonical internal taxonomy is defined by `src/ledger/FinancialTaxonomy.lua`.
 
-## 7. Red Tape boundary
+## 7. Native liability conventions — locked
+
+All AgForward lending products must ultimately live in the native liability registry rather than maintaining unrelated balance stores.
+
+Current liability records support:
+
+- stable AgForward liability ID;
+- farm ownership;
+- product type;
+- lifecycle status;
+- original principal and current principal;
+- credit limit for revolving facilities;
+- separately accrued interest and fees;
+- rate, term, scheduled payment, and balloon fields;
+- payment dates/periods;
+- linked asset reference;
+- extensible metadata.
+
+Current revolving-credit rule:
+
+`available credit = max(0, credit limit - principal balance)`
+
+Accrued interest and fees remain separate from principal-limit utilization until an individual product policy deliberately states otherwise.
+
+A CILOC draw must validate farm, product type, active status, revolving eligibility, and remaining credit before the accounting group can post.
+
+## 8. Red Tape boundary
 
 Red Tape owns:
 
@@ -164,7 +190,7 @@ AgForward owns economic truth for its finance system and must preserve transacti
 - asset purchases/sales: asset transactions;
 - grants: external funding source when provided by Red Tape.
 
-## 8. Trade-in status
+## 9. Trade-in status
 
 **DEFERRED.**
 
@@ -174,7 +200,7 @@ The asset/lien model must nevertheless preserve enough information to support a 
 
 No first-phase dependency on Trade In is permitted.
 
-## 9. Current development phase
+## 10. Current development phase
 
 ### Phase 0 — Foundation
 
@@ -189,6 +215,7 @@ Required foundation work:
 - journal/ledger;
 - transaction taxonomy;
 - purpose-aware accounting service;
+- native liability model/registry;
 - MoneyType/FinanceStats planning and registration;
 - initial multiplayer state model;
 - single period-change settlement coordinator;
@@ -197,7 +224,7 @@ Required foundation work:
 - minimal AgForward finance UI;
 - save/load/reload QA in single-player and multiplayer.
 
-### Implemented in repository as of A002
+### Implemented in repository as of A003
 
 - project/bootstrap structure;
 - service container;
@@ -207,29 +234,32 @@ Required foundation work:
 - ordered central ledger;
 - pre-validated batch posting for linked economic events;
 - purpose-aware accounting service;
-- CILOC linked draw + input-purchase ledger API;
-- native save schema v1;
+- native liability record and liability registry;
+- revolving-credit availability and draw validation;
+- real CILOC liability validation tied to linked draw + input-purchase ledger posting;
+- native save schema v2 with v1 compatibility path;
+- persistent liability + ledger + ID-counter storage;
 - server-authoritative `agForwardFinance.xml` load/save service;
 - appended mission save hook designed to coexist with other save hooks;
 - empty Phase 0 period settlement coordinator;
 - Red Tape presence-detection adapter;
-- Phase 0 persistence QA specification.
+- Phase 0 persistence/liability QA specification.
 
 ### Not yet runtime-validated
 
-The items above are **implemented but not yet promoted to runtime-proven authority**. They still require an FS25 test pass. In particular, save-hook interoperability, XML API behavior, repeated save/load, Red Tape coexistence, and multiplayer server/client behavior must be tested in-game before they are marked validated.
+The items above are **implemented but not yet promoted to runtime-proven authority**. They still require an FS25 test pass. In particular, save-hook interoperability, XML API behavior, schema migration, CILOC validation, repeated save/load, Red Tape coexistence, and multiplayer server/client behavior must be tested in-game before they are marked validated.
 
-## 10. Immediate next implementation targets
+## 11. Immediate next implementation targets
 
-1. Run the Phase 0 persistence QA pass against a real FS25 save.
-2. Add farm-level financial-state service and version it into the native save schema.
-3. Add liability registry/data model so CILOC and other facilities have real persistent balances rather than test IDs.
-4. Add transaction-to-FS money movement boundary and MoneyType/FinanceStats mapping without corrupting the purpose-aware ledger.
-5. Add initial multiplayer state synchronization from server to joining clients.
-6. Prove Red Tape accounting integration without duplicate recording.
-7. Build a minimal read-only AgForward finance screen for cash, liabilities, available credit, and recent ledger activity.
+1. Run the Phase 0 persistence/liability QA pass against a real FS25 save.
+2. Add farm-level financial-state/credit-profile service.
+3. Add transaction-to-FS money movement boundary and MoneyType/FinanceStats mapping without corrupting the purpose-aware ledger.
+4. Add initial multiplayer state synchronization from server to joining clients.
+5. Prove Red Tape accounting integration without duplicate recording.
+6. Build a minimal read-only AgForward finance screen for cash, liabilities, available credit, and recent ledger activity.
+7. Begin native operating-line product logic only after the persistence and money-movement boundaries are proven.
 
-## 11. Non-goals for Phase 0
+## 12. Non-goals for Phase 0
 
 Do not implement yet:
 
@@ -240,6 +270,6 @@ Do not implement yet:
 - cosmetic branding polish beyond what is needed for functional UI;
 - copied or ported third-party code.
 
-## 12. Change-control rule
+## 13. Change-control rule
 
 Any change to a locked item above must be explicitly promoted into a new revision of this authority document. Experimental code may exist on branches, but it does not become project-wide authority until this file is deliberately updated.
