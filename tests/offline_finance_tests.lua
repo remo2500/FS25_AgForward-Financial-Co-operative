@@ -3,6 +3,7 @@
 
 dofile("src/core/Currency.lua")
 dofile("src/finance/RateConvention.lua")
+dofile("src/finance/RatePricingService.lua")
 dofile("src/finance/AmortizationService.lua")
 dofile("src/credit/CreditMetrics.lua")
 dofile("src/input/FundingDecisionService.lua")
@@ -47,6 +48,25 @@ assertNear(parsed, 0.0725, 0.0000000001, "display percent parse")
 local invalidRate, invalidRateError = AGFRateConvention.toPeriodicRate(-0.01)
 assertEqual(invalidRate, nil, "negative rate rejected")
 assertEqual(invalidRateError, "NEGATIVE_RATE_NOT_SUPPORTED", "negative rate error")
+
+-- Componentized pricing: 4.50% base + 1.25% product + 0.75% risk + 0.10% term - 0.05% structure = 6.55%.
+local pricingOk, pricing = AGFRatePricingService.quote({
+    baseRate = 0.045,
+    productSpread = 0.0125,
+    riskSpread = 0.0075,
+    termAdjustment = 0.001,
+    structureAdjustment = -0.0005
+})
+assertTrue(pricingOk, "pricing quote approved")
+assertNear(pricing.annualRate, 0.0655, 0.0000000001, "componentized annual rate")
+assertNear(pricing.annualPercent, 6.55, 0.0000000001, "componentized display percent")
+
+local negativePricingOk, negativePricingError = AGFRatePricingService.quote({
+    baseRate = 0,
+    productSpread = -0.01
+})
+assertFalse(negativePricingOk, "negative final rate rejected")
+assertEqual(negativePricingError, "NEGATIVE_FINAL_RATE", "negative final rate error")
 
 -- Standard amortizing loan.
 local payment, paymentError = AGFAmortizationService.calculateRegularPayment(100000, 0.12, 12, 0)
