@@ -65,7 +65,7 @@ function AGFLiability:getAvailableCredit()
     if not self:isRevolving() then
         return 0
     end
-    return math.max(0, (self.creditLimit or 0) - (self.principalBalance or 0))
+    return math.max(0, AGFCurrency.round((self.creditLimit or 0) - (self.principalBalance or 0)))
 end
 
 function AGFLiability:setMetadata(key, value)
@@ -79,6 +79,32 @@ function AGFLiability:setMetadata(key, value)
     return self
 end
 
+function AGFLiability:clone()
+    local copy = AGFLiability.new(self.id, self.farmId, self.productType)
+    copy.status = self.status
+    copy.displayName = self.displayName
+    copy.originalPrincipal = self.originalPrincipal
+    copy.principalBalance = self.principalBalance
+    copy.creditLimit = self.creditLimit
+    copy.accruedInterest = self.accruedInterest
+    copy.accruedFees = self.accruedFees
+    copy.interestRate = self.interestRate
+    copy.termMonths = self.termMonths
+    copy.remainingTermMonths = self.remainingTermMonths
+    copy.scheduledPayment = self.scheduledPayment
+    copy.balloonAmount = self.balloonAmount
+    copy.startYear = self.startYear
+    copy.startPeriod = self.startPeriod
+    copy.nextPaymentYear = self.nextPaymentYear
+    copy.nextPaymentPeriod = self.nextPaymentPeriod
+    copy.assetId = self.assetId
+    copy.metadata = {}
+    for key, value in pairs(self.metadata or {}) do
+        copy.metadata[key] = value
+    end
+    return copy
+end
+
 function AGFLiability:saveToXMLFile(xmlFile, key)
     setXMLString(xmlFile, key .. "#id", tostring(self.id))
     setXMLInt(xmlFile, key .. "#farmId", tonumber(self.farmId) or 0)
@@ -88,16 +114,16 @@ function AGFLiability:saveToXMLFile(xmlFile, key)
     setOptionalString(xmlFile, key .. "#displayName", self.displayName)
     setOptionalString(xmlFile, key .. "#assetId", self.assetId)
 
-    setXMLFloat(xmlFile, key .. "#originalPrincipal", tonumber(self.originalPrincipal) or 0)
-    setXMLFloat(xmlFile, key .. "#principalBalance", tonumber(self.principalBalance) or 0)
-    setXMLFloat(xmlFile, key .. "#creditLimit", tonumber(self.creditLimit) or 0)
-    setXMLFloat(xmlFile, key .. "#accruedInterest", tonumber(self.accruedInterest) or 0)
-    setXMLFloat(xmlFile, key .. "#accruedFees", tonumber(self.accruedFees) or 0)
+    setXMLFloat(xmlFile, key .. "#originalPrincipal", AGFCurrency.round(self.originalPrincipal or 0))
+    setXMLFloat(xmlFile, key .. "#principalBalance", AGFCurrency.round(self.principalBalance or 0))
+    setXMLFloat(xmlFile, key .. "#creditLimit", AGFCurrency.round(self.creditLimit or 0))
+    setXMLFloat(xmlFile, key .. "#accruedInterest", AGFCurrency.round(self.accruedInterest or 0))
+    setXMLFloat(xmlFile, key .. "#accruedFees", AGFCurrency.round(self.accruedFees or 0))
     setXMLFloat(xmlFile, key .. "#interestRate", tonumber(self.interestRate) or 0)
     setXMLInt(xmlFile, key .. "#termMonths", math.max(0, math.floor(tonumber(self.termMonths) or 0)))
     setXMLInt(xmlFile, key .. "#remainingTermMonths", math.max(0, math.floor(tonumber(self.remainingTermMonths) or 0)))
-    setXMLFloat(xmlFile, key .. "#scheduledPayment", tonumber(self.scheduledPayment) or 0)
-    setXMLFloat(xmlFile, key .. "#balloonAmount", tonumber(self.balloonAmount) or 0)
+    setXMLFloat(xmlFile, key .. "#scheduledPayment", AGFCurrency.round(self.scheduledPayment or 0))
+    setXMLFloat(xmlFile, key .. "#balloonAmount", AGFCurrency.round(self.balloonAmount or 0))
 
     if self.startYear ~= nil then setXMLInt(xmlFile, key .. "#startYear", tonumber(self.startYear) or 0) end
     if self.startPeriod ~= nil then setXMLInt(xmlFile, key .. "#startPeriod", tonumber(self.startPeriod) or 0) end
@@ -132,16 +158,16 @@ function AGFLiability.loadFromXMLFile(xmlFile, key)
     liability.displayName = getXMLString(xmlFile, key .. "#displayName")
     liability.assetId = getXMLString(xmlFile, key .. "#assetId")
 
-    liability.originalPrincipal = getXMLFloat(xmlFile, key .. "#originalPrincipal") or 0
-    liability.principalBalance = getXMLFloat(xmlFile, key .. "#principalBalance") or 0
-    liability.creditLimit = getXMLFloat(xmlFile, key .. "#creditLimit") or 0
-    liability.accruedInterest = getXMLFloat(xmlFile, key .. "#accruedInterest") or 0
-    liability.accruedFees = getXMLFloat(xmlFile, key .. "#accruedFees") or 0
+    liability.originalPrincipal = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#originalPrincipal") or 0)
+    liability.principalBalance = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#principalBalance") or 0)
+    liability.creditLimit = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#creditLimit") or 0)
+    liability.accruedInterest = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#accruedInterest") or 0)
+    liability.accruedFees = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#accruedFees") or 0)
     liability.interestRate = getXMLFloat(xmlFile, key .. "#interestRate") or 0
     liability.termMonths = getXMLInt(xmlFile, key .. "#termMonths") or 0
     liability.remainingTermMonths = getXMLInt(xmlFile, key .. "#remainingTermMonths") or 0
-    liability.scheduledPayment = getXMLFloat(xmlFile, key .. "#scheduledPayment") or 0
-    liability.balloonAmount = getXMLFloat(xmlFile, key .. "#balloonAmount") or 0
+    liability.scheduledPayment = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#scheduledPayment") or 0)
+    liability.balloonAmount = AGFCurrency.round(getXMLFloat(xmlFile, key .. "#balloonAmount") or 0)
 
     liability.startYear = getXMLInt(xmlFile, key .. "#startYear")
     liability.startPeriod = getXMLInt(xmlFile, key .. "#startPeriod")

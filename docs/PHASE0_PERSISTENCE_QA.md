@@ -1,192 +1,371 @@
-# Phase 0 Persistence QA
+# Phase 0 Persistence / Integrity QA
 
-**Target build:** 0.0.3.0  
-**Scope:** save/load, persistent IDs, liability persistence, ledger ordering, linked accounting groups, server authority.
+**Target build:** 0.0.4.0  
+**Schema:** v3  
+**Scope:** dual-copy recovery, safe mode, persistent IDs, liabilities, immutable ledger, coordinated operations, settlement idempotency, server authority, Red Tape coexistence.
 
-This document defines the first in-game validation pass for the AgForward foundation. A test is not considered passed until it has been run in Farming Simulator 25 against a real savegame.
+A test is not passed until it has been run in Farming Simulator 25 against a disposable test save. This document does not authorize testing on the user's primary savegame.
 
-## 1. New-save initialization
+## 1. Static validation first
 
-1. Install `FS25_AgForwardFinance` with no prior `agForwardFinance.xml` in the savegame.
-2. Load the save.
-3. Confirm the log contains an AgForward initialization line and reports `save: NEW_SAVE`.
-4. Confirm the game reaches normal gameplay with no Lua error.
+Before packaging:
 
-Expected result: AgForward starts with zero liabilities and zero ledger transactions and does not create or move money during load.
+1. Run `python tools/validate_repository.py`.
+2. Confirm repository static validation passes.
+3. Package with `modDesc.xml` at the root of `FS25_AgForwardFinance.zip`.
+4. Run the current GIANTS FS25 TestRunner on the packaged ZIP.
 
-## 2. Save-file creation
+Expected result: no missing source registrations/XML parse problems; TestRunner reports no blocking mod-package issue.
 
-1. Save the game normally.
-2. Inspect the savegame folder.
-3. Confirm `agForwardFinance.xml` exists.
-4. Confirm root `agForwardFinance` contains `schemaVersion="2"`.
-5. Confirm ID-counter, liability, and ledger sections are structurally valid even when empty.
+## 2. New-save initialization
 
-Expected result: saving the game does not alter farm cash and does not interfere with the normal FS25 save.
+Start with neither:
 
-## 3. Reload stability
+- `agForwardFinance.xml`; nor
+- `agForwardFinance.backup.xml`.
 
-1. Exit to menu after saving.
-2. Reload the same savegame.
-3. Confirm the log reports `save: LOADED`.
-4. Confirm no duplicate AgForward initialization and no duplicate save hook behavior.
-5. Save again and reload a second time.
+Load the save.
 
-Expected result: repeated save/load cycles remain stable.
+Expected:
 
-## 4. Persistent ID validation
+- runtime state `NEW_STATE`;
+- zero liabilities;
+- zero ledger transactions;
+- no money movement;
+- normal gameplay reached without Lua error.
 
-After a development test transaction or liability has been created:
+## 3. First save creates two matching copies
 
-1. Record its AgForward ID.
-2. Save and reload.
-3. Create another ID in the same scope.
-4. Confirm the new ID sequence is greater than every previously saved ID.
+Save normally.
 
-Example expected sequence:
+Expected:
 
-- before save: `AGF-TX-000001` / `AGF-LIAB-000001`;
-- after reload: next IDs `AGF-TX-000002` / `AGF-LIAB-000002`.
+- primary `agForwardFinance.xml` exists;
+- recovery `agForwardFinance.backup.xml` exists;
+- both have `schemaVersion="3"`;
+- both have the same positive `saveGeneration`;
+- ID, liability, ledger, and settlement sections are structurally valid;
+- farm cash is unchanged by Phase 0.
 
-No ID may be reused.
+## 4. Normal reload
 
-## 5. Liability persistence
+Exit and reload without modifying either copy.
 
-Create a development CILOC liability with:
+Expected:
 
-- product type `cropInputLine`;
-- farm ID matching the test farm;
-- credit limit 100,000;
-- principal balance 0;
-- active status.
+- primary is selected;
+- runtime state `NORMAL`;
+- load status `LOADED`;
+- generation is preserved;
+- no duplicate initialization or duplicate save-hook effect.
 
-Save and reload.
+Save again and confirm generation advances by exactly one.
 
-Expected result:
+## 5. Recovery-copy test
 
-- liability ID is unchanged;
-- product type, farm ID, status, limit, balance, rate, term/payment fields, and metadata survive reload;
-- available credit remains 100,000.
+After a successful save:
 
-## 6. Credit-limit validation
+1. Back up both AgForward files externally.
+2. Corrupt only the primary XML so it cannot be parsed.
+3. Reload.
 
-Using the saved CILOC above:
+Expected:
 
-1. Attempt a 30,000 eligible draw.
-2. Confirm available credit becomes 70,000.
-3. Attempt an additional 80,000 draw.
-4. Confirm the registry rejects it with `CREDIT_LIMIT_EXCEEDED`.
-5. Confirm principal remains 30,000 after the rejected request.
+- recovery copy is selected;
+- runtime state `RECOVERED`;
+- load status indicates recovery;
+- financial state equals the last valid generation;
+- next successful save recreates two valid copies.
 
-Also verify that a different farm cannot use the liability and a general term loan cannot be used as a revolving CILOC.
+## 6. Both copies invalid -> safe mode
 
-## 7. Ledger persistence
+Corrupt both financial files.
 
-After posting several test transactions:
+Expected:
 
-1. Save.
-2. Reload.
-3. Confirm transaction count is unchanged.
-4. Confirm posting order is unchanged.
-5. Confirm farm ID, transaction type, amount, principal, interest, fees, group ID, funding source, expense category, asset/liability references, period/year, description, and metadata survive the cycle.
+- runtime state `READ_ONLY_SAFE_MODE`;
+- financial mutations are rejected;
+- AgForward save writes are rejected;
+- the corrupt source files are **not** overwritten as if this were a new save;
+- game should remain loadable unless an unrelated FS error occurs.
 
-Expected result: no transaction is silently dropped or overwritten.
+Restore the externally backed-up copies after the test.
 
-## 8. CILOC linked-accounting proof
+## 7. Newer-schema protection
 
-Using the real liability registry and accounting service, post a development-only crop-input example:
+On a disposable copy, change the newest valid AgForward copy to a schema number higher than the current supported schema while keeping the XML parseable.
 
-- farm: test farm;
-- amount: 30,000;
+Expected:
+
+- AgForward enters `READ_ONLY_SAFE_MODE`;
+- log reports newer schema / overwrite blocked;
+- saving the game does not downgrade that AgForward financial file.
+
+## 8. Persistent ID validation
+
+After creating development records:
+
+1. Record `TX`, `GRP`, and `LIAB` IDs.
+2. Save/reload.
+3. Create another ID in each used scope.
+
+Expected example:
+
+- prior: `AGF-TX-000001`, `AGF-GRP-000001`, `AGF-LIAB-000001`;
+- next: `...000002`.
+
+No saved/observed ID may ever be reused.
+
+## 9. Liability draft/registry isolation
+
+Create a development CILOC liability draft, configure it, and register it.
+
+After registration, mutate the original draft object in test/debug code.
+
+Expected:
+
+- authoritative registry copy does **not** change;
+- `get()`/`getAll()` return copies, not writable authoritative records;
+- direct public `applyDraw()` and `applyPrincipalPayment()` return `OPERATION_COORDINATOR_REQUIRED`.
+
+This proves liability balance changes cannot bypass accounting coordination.
+
+## 10. Liability persistence
+
+Create/register an active CILOC with:
+
+- test farm ID;
+- product `cropInputLine`;
+- limit 100,000.00;
+- principal 0.00;
+- an interest rate/metadata test value.
+
+Save/reload.
+
+Expected:
+
+- ID and all configured fields survive;
+- available credit = 100,000.00;
+- values remain cent-normalized.
+
+## 11. CILOC linked-accounting proof
+
+Through `AGFAccountingService`, post a development-only financed input purchase:
+
+- amount: 30,000.00;
 - category: `fertilizer`;
-- funding source: `cropInputLine`;
-- liability: the active CILOC created above.
+- active test CILOC.
 
-Expected result:
+Expected coordinated result:
 
-- one `creditDraw` transaction for +30,000;
-- one `inputPurchase` transaction for -30,000;
-- both share the same `groupId`;
-- both reference the same CILOC liability;
-- the purchase retains `fertilizer` as its expense category;
-- the financing transaction is not categorized as income;
-- the CILOC principal increases by exactly 30,000;
-- available credit falls by exactly 30,000;
-- save/reload preserves the liability balance, pair, and shared group.
+- `creditDraw` +30,000.00;
+- `inputPurchase` -30,000.00;
+- same `groupId`;
+- same liability ID;
+- purchase category remains `fertilizer`;
+- CILOC principal becomes exactly 30,000.00;
+- available credit becomes 70,000.00;
+- group reconciles to zero;
+- save/reload preserves all values exactly to cent precision.
 
-This test proves AgForward can answer both:
+## 12. Credit-limit/farm/product rejection
 
-- what was purchased? fertilizer;
-- how was it funded? Crop Input Line of Credit.
+With CILOC balance 30,000 on a 100,000 limit:
 
-## 9. Ineligible CILOC purchase
+- attempt financed input of 80,000 -> `CREDIT_LIMIT_EXCEEDED`;
+- try the liability from another farm -> farm mismatch rejection;
+- use a term-loan liability as CILOC -> wrong product rejection;
+- use a non-active CILOC -> not-active rejection.
 
-Attempt to finance a category not on the crop-input eligibility list.
+Expected for every rejection:
 
-Expected result:
+- no ledger entries;
+- no principal change;
+- no FS money movement.
+
+## 13. Ineligible CILOC category
+
+Attempt an unapproved expense category.
+
+Expected:
 
 - `INELIGIBLE_CROP_INPUT_CATEGORY`;
-- no ledger entries posted;
-- no liability balance change.
+- zero state mutation.
 
-## 10. Duplicate-ID defense
+## 14. Ledger immutability
 
-Development test only:
+Post a development transaction, retrieve it through the public ledger API, and mutate the returned object's fields.
 
-1. Attempt to post a second transaction using an already-posted transaction ID.
-2. Confirm the ledger rejects the transaction with `DUPLICATE_TRANSACTION_ID`.
-3. Confirm the original transaction remains unchanged.
+Expected:
 
-Repeat for a liability ID and confirm `DUPLICATE_LIABILITY_ID`.
+- authoritative posted record is unchanged.
 
-## 11. Batch-posting validation
+Also attempt setter calls on a posted/sealed internal test record.
 
-1. Create a two-entry linked transaction batch.
-2. Deliberately introduce a duplicate ID inside the batch.
-3. Confirm `postBatch()` rejects the batch before any entry is posted.
+Expected:
 
-Expected result: linked economic events do not partially enter the ledger during pre-validation failure.
+- setters do not alter sealed history.
 
-## 12. Schema v1 -> v2 compatibility
+## 15. Duplicate-ID defense
 
-Using a copy of a schema-v1 AgForward file containing only ID counters and ledger transactions:
+Attempt duplicate transaction and liability IDs.
 
-1. Load with build 0.0.3.0.
-2. Confirm the ledger and IDs load.
-3. Confirm liabilities initialize empty.
-4. Save.
-5. Confirm the file is rewritten as schema v2 without losing v1 ledger records.
+Expected:
 
-## 13. Server/client authority
+- duplicate transaction rejected;
+- duplicate liability rejected;
+- original records unchanged;
+- integrity check remains clean.
+
+## 16. Batch rollback proof
+
+### Prevalidation failure
+
+Create a two-entry batch with a duplicate ID.
+
+Expected: whole batch rejected before either entry posts.
+
+### Post-ledger operation failure (development fault injection)
+
+Force the coordinated liability-apply step to fail after a test ledger batch is posted.
+
+Expected:
+
+- just-posted tail batch rolls back;
+- no orphan financing/expense records remain;
+- if rollback itself is forced to fail, runtime enters `READ_ONLY_SAFE_MODE`.
+
+## 17. Integrity-load failure
+
+On disposable copies, introduce individually:
+
+- orphan liability reference;
+- revolving principal above its limit;
+- unknown transaction type;
+- non-zero linked financing/expense group imbalance.
+
+Expected:
+
+- invalid copy is not silently accepted;
+- another valid copy is tried if available;
+- otherwise safe mode is entered;
+- no partially loaded writable books remain.
+
+## 18. Settlement idempotency
+
+Trigger the same period-change condition more than once.
+
+Expected for Phase 0 engine version `0`:
+
+- settlement completes/no-ops once per `engineVersion:year:period` key;
+- completion key persists through save/reload;
+- duplicate callbacks do not rerun it;
+- no money moves.
+
+Future money-moving settlement must increment the engine version before testing.
+
+## 19. Purchase classifier unit/console checks
+
+Test representative contexts:
+
+- PURCHASE_SEEDS -> `seed`;
+- PURCHASE_FUEL -> `fuel`;
+- fertilizer + FERTILIZER/LIQUIDFERTILIZER -> `fertilizer`;
+- fertilizer/material + LIME -> `limeSoilAmendment`;
+- fertilizer/material + HERBICIDE -> `cropProtection`;
+- BOUGHT_MATERIALS with known fill type -> mapped category;
+- BOUGHT_MATERIALS with no fill type -> unresolved/low confidence, **not guessed**.
+
+## 20. High-frequency accumulator
+
+Add many small values that mathematically equal a known cent total to one bucket.
+
+Expected:
+
+- no floating-point drift at cent boundary;
+- pending/drained amount equals exact expected cents;
+- farm/category/funding/liability keys remain separate;
+- drain clears pending buckets.
+
+No live helper hook is enabled in Phase 0.
+
+## 21. Schema migration
+
+### v1 -> v3
+
+Load a valid schema-v1 development file containing legacy IDs/ledger.
+
+Expected:
+
+- compatible legacy data loads;
+- liabilities and settlement state initialize appropriately;
+- next successful save writes schema v3 primary + recovery copies;
+- no legacy transaction is lost.
+
+### v2 -> v3
+
+Load a valid v2 file with liabilities and ledger.
+
+Expected:
+
+- all records retained;
+- `saveGeneration` defaults safely;
+- settlement marker initializes empty;
+- next save upgrades to v3 dual-copy format.
+
+## 22. Server/client authority
 
 Multiplayer validation:
 
-1. Start a server-hosted save.
-2. Join with at least one client.
-3. Confirm only the server loads/writes `agForwardFinance.xml`.
-4. Confirm client reports `CLIENT_WAITING_FOR_SYNC` rather than attempting local save-file authority.
+1. host/dedicated server loads the save;
+2. client joins;
+3. client reports `CLIENT_WAITING_FOR_SYNC` at the local-file layer;
+4. client does not create/write either AgForward XML file;
+5. direct client-side calls to mutation services are rejected.
 
-Note: full client synchronization is a later Phase 0 task; this test currently verifies that clients do not independently write financial state.
+Full initial-state synchronization is a remaining Phase 0 deliverable and must be tested separately when implemented.
 
-## 14. Red Tape coexistence
+## 23. Overlap warning test
 
-Run the new-save, save, reload, and settlement-trigger tests both with and without Red Tape installed.
+Load disposable sessions with one known donor finance mod present at a time.
 
-Expected result:
+Expected:
 
-- AgForward initializes without Red Tape;
-- with Red Tape installed, detection reports the adapter state without injecting duplicate tax items;
-- saving through both mods' appended save hooks completes without one orphaning the other.
+- AgForward warns that overlapping financial authority is active;
+- no false conflict warning for Red Tape.
+
+The warning does not imply compatibility is safe for production saves.
+
+## 24. Red Tape coexistence / save-hook test
+
+Run new-save, save, reload, recovery, and period-change tests:
+
+- without Red Tape;
+- with Red Tape.
+
+Expected:
+
+- both load/save chains remain functional;
+- neither save hook orphans the other;
+- Red Tape detection works;
+- AgForward injects no duplicate tax line items in Phase 0.
+
+Also verify hook timing after mission startup; target selection alone is not sufficient proof.
 
 ## Exit criteria
 
-Persistence/liability foundation may be marked `RUNTIME_VALIDATED` only after:
+The hardening branch may be marked `RUNTIME_VALIDATED` only after:
 
-- all single-player save/load tests pass;
-- schema v1 -> v2 migration test passes;
-- no duplicate IDs occur;
-- liabilities and ledger content survive reload exactly;
-- CILOC limit and category controls behave correctly;
-- no money movement occurs from Phase 0 settlement;
-- Red Tape coexistence does not produce save-hook errors;
-- multiplayer confirms server-only file authority.
+- static validator passes;
+- current GIANTS TestRunner passes the packaged candidate;
+- dual-copy save/recovery tests pass;
+- corrupt/newer files are never overwritten;
+- v1/v2 migrations pass;
+- IDs/liabilities/ledger remain deterministic;
+- immutable journal and coordinated rollback tests pass;
+- CILOC accounting/limit controls pass;
+- Phase 0 settlement remains idempotent and moves no money;
+- Red Tape coexistence passes;
+- server-only file/mutation authority passes.
+
+Do **not** merge the hardening branch to `main` as runtime-proven authority before these exit criteria are satisfied.

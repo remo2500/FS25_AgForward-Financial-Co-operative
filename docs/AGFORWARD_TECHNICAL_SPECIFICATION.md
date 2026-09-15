@@ -1,173 +1,279 @@
 # AgForward Technical Specification
 
-**Revision:** 0.1 repository baseline  
+**Revision:** 0.2 hardening baseline  
 **Date:** 2026-09-15  
 **Authority:** subordinate to `AGFORWARD_CURRENT_AUTHORITY.md`
 
 ## Objective
 
-Build one native FS25 financial ecosystem that replaces the lending, asset-finance, leasing, and financial-history purposes of the audited reference mods while remaining an original implementation. Red Tape is optional and external.
+Build one original FS25 financial ecosystem for operating credit, equipment, facilities, land, leasing, and financial reporting. Red Tape remains optional and external.
 
-## Core services
+## Core service contracts
+
+### Runtime state
+
+`AGFRuntimeStateService` gates every consequential mutation/save.
+
+Writable server states:
+- `NEW_STATE`
+- `NORMAL`
+- `RECOVERED`
+
+Non-writable states:
+- `BOOTSTRAPPING`
+- `READ_ONLY_SAFE_MODE`
+- `CLIENT_WAITING_FOR_SYNC`
+- `SHUTDOWN`
 
 ### Service container
-A single mission-scoped registry provides stable access to AgForward services and prevents product modules from directly constructing duplicate financial engines.
+
+Mission-scoped service registry. Product modules resolve shared engines from the container rather than constructing private debt/accounting systems.
+
+### Currency
+
+`AGFCurrency` is the common cent-normalization boundary. Persisted amounts remain FS-compatible numeric values, but new financial operations compare/round at integer-cent precision.
 
 ### ID service
-Generate persistent IDs for transactions, transaction groups, assets, liabilities, leases, credit applications, and snapshots. IDs must remain stable through save/load.
+
+Persistent ID scopes currently include:
+- `TX`
+- `GRP`
+- `LIAB`
+
+Future scopes include assets, liens, leases, applications, and snapshots.
 
 ### Ledger
-One authoritative journal records financial events. The ledger must preserve two separate dimensions:
 
-1. **Economic purpose** — seed, fertilizer, fuel, interest, rent, asset purchase, etc.
-2. **Funding source** — cash, operating line, Crop Input LOC, equipment loan, project loan, etc.
+One authoritative journal.
 
-A financing draw never replaces the expense classification of the purchase it funds.
+Every record may carry both:
+- economic purpose (`expenseCategory` / transaction type); and
+- funding source.
 
-### Asset / rights registry
-Target asset classes:
-- vehicle/equipment;
-- placeable/facility;
-- farmland;
-- future other secured assets.
+Posted records are sealed. Public reads return clones.
 
-Rights must distinguish:
+Canonical transaction types currently include:
+- `creditDraw`
+- `creditRepayment`
+- `loanProceeds`
+- `loanPayment`
+- `principalPayment`
+- `interestPayment`
+- `financeFee`
+- `lateFee`
+- `inputPurchase`
+- `assetPurchase`
+- `assetSale`
+- `leaseRent`
+- `grantReceipt`
+- `taxPayment`
+- `adjustment`
+
+Input purpose is represented by `expenseCategory`, not a different transaction class for every material.
+
+### Liability registry
+
+One registry for all AgForward debt.
+
+Required common fields:
+- farm ID;
+- product type/status;
+- principal/original principal;
+- revolving credit limit;
+- interest/fees;
+- rate/term/payment/balloon;
+- payment timing;
+- linked asset;
+- metadata.
+
+### Financial operation coordinator
+
+All multi-record changes must pass through a common commit boundary.
+
+Current proof operation: revolving-funded input purchase. It validates the facility, posts a linked ledger batch, applies liability principal, and rolls back the new ledger batch if liability mutation fails.
+
+Actual FS25 cash movement will later be added inside this coordinator.
+
+### Integrity service
+
+Runs after load and before save. Severe errors block writes.
+
+Checks currently include:
+- IDs/references;
+- transaction/product taxonomies;
+- finite monetary values;
+- liability limits/balances;
+- grouped financing/expense reconciliation;
+- farm reference warnings;
+- persistent ID observation.
+
+### Save service
+
+Schema v3 uses:
+- `agForwardFinance.xml`
+- `agForwardFinance.backup.xml`
+- monotonic save generation;
+- newest-valid-compatible-copy selection;
+- backup fallback;
+- newer-schema write protection;
+- read-only safe mode.
+
+See `SAVE_SCHEMA_V3.md`.
+
+### Settlement coordinator
+
+Only one service responds to `PERIOD_CHANGED` for AgForward settlement. Completion markers are persistent and versioned.
+
+Phase 0 settlement engine version `0` performs no money movement.
+
+### Purchase classification
+
+`AGFPurchaseClassificationService` combines MoneyType and fill-type context.
+
+Rules include:
+- purchase seeds -> seed;
+- purchase fuel -> fuel;
+- fertilizer purchase plus fertilizer/liquid fertilizer -> fertilizer;
+- fertilizer purchase plus herbicide -> crop protection;
+- fertilizer purchase plus lime -> lime/soil amendment;
+- generic bought-materials requires fill-type/caller context; no guessing.
+
+### Input purchase accumulator
+
+High-frequency helper input costs accumulate in integer cents by farm/category/funding/liability before future ledger posting.
+
+### Compatibility service
+
+Warns when overlapping donor/reference finance mods are active. It does not flag Red Tape.
+
+### Red Tape adapter
+
+Red Tape-specific behavior remains isolated under integration code. Core lending classes must not depend directly on Red Tape globals.
+
+## Crop Input LOC accounting pattern
+
+Example: $25,000 seed purchase funded by CILOC.
+
+Shared group contains:
+
+1. `creditDraw`, amount `+25000`, funding source `cropInputLine`, liability ID set, economic role `financing`.
+2. `inputPurchase`, amount `-25000`, expense category `seed`, funding source `cropInputLine`, same liability/group, economic role `expense`.
+
+Result:
+- seed expense = $25,000;
+- CILOC principal = +$25,000;
+- group nets to $0 before the future actual-cash boundary;
+- draw is not income.
+
+## Asset/right registry target
+
+Future native registry must distinguish:
 - economic owner;
 - operator;
 - tenant/leaseholder;
-- collateral owner/lienholder.
+- lienholder/collateral interest.
 
-### Liability registry
-Common liability model should support:
-- product type;
-- original principal/limit;
-- outstanding principal;
-- interest rate and rate type;
-- term/maturity;
-- scheduled payment;
-- balloon;
-- accrued interest/fees;
-- collateral links;
-- status/delinquency state;
-- next payment period;
-- payoff amount.
+Asset classes:
+- vehicle/equipment;
+- placeable/facility;
+- farmland;
+- future secured assets.
 
-### Credit engine
-Use whole-farm information rather than product-local debt. Initial metrics:
+Unresolved links are quarantined/retried, never silently treated as paid or deleted.
+
+## Credit engine target
+
+Whole-farm underwriting target metrics:
 - DSCR;
 - fixed-charge coverage;
 - LTV;
-- debt-to-assets;
-- liquidity/working capital;
-- revolver utilization;
+- debt/assets;
+- working capital/liquidity;
+- revolving utilization;
 - payment history;
 - free vs encumbered collateral.
 
-### Rate engine
-Common pricing framework across products:
-`base rate + product spread + borrower risk spread + optional term/structure adjustments`.
+Credit calculations must include all known AgForward obligations plus deliberately represented vanilla/external obligations.
 
-### Settlement coordinator
-Only one AgForward component reacts to a period change for payments. It gathers due obligations, determines available liquidity, applies approved credit rules, settles deterministically, posts accounting components, and updates delinquency.
+## Rate engine target
 
-### Reporting
-Reports are generated from ledger/registries, not maintained as competing balances.
+Pricing framework:
 
-## Transaction taxonomy
+`base rate + product spread + borrower risk spread + optional term/structure adjustment`
 
-Minimum taxonomy target:
-- LOAN_PROCEEDS;
-- REVOLVER_DRAW;
-- REVOLVER_REPAYMENT;
-- PRINCIPAL_PAYMENT;
-- INTEREST_PAYMENT;
-- FINANCE_FEE;
-- LATE_FEE;
-- LEASE_RENT;
-- ASSET_PURCHASE;
-- ASSET_SALE;
-- LIEN_PAYOFF;
-- DOWN_PAYMENT;
-- GRANT_RECEIPT;
-- INPUT_PURCHASE_SEED;
-- INPUT_PURCHASE_FERTILIZER;
-- INPUT_PURCHASE_LIME;
-- INPUT_PURCHASE_CROP_PROTECTION;
-- INPUT_PURCHASE_FUEL.
+Before implementation, lock:
+- rate storage convention (decimal vs percent);
+- nominal/effective convention;
+- compounding frequency;
+- variable-rate reset timing;
+- amortization rounding.
 
-## Crop Input LOC transaction pattern
+## Multiplayer target
 
-Example: $25,000 seed purchase fully funded by CILOC.
+- server owns mutations;
+- clients send requests only;
+- requesting farm/permissions are verified from the connection, not trusted payload IDs;
+- server validates product/amount/asset identity;
+- state is synchronized to join-in-progress clients;
+- clients never load/write the local AgForward save file.
 
-Transaction group `AGF-GRP-xxxxxx` contains:
+## UI target
 
-1. `REVOLVER_DRAW` / funding source `CROP_INPUT_LOC` / liability +25,000.
-2. `INPUT_PURCHASE_SEED` / expense category `SEED` / cash outflow 25,000.
-
-Result:
-- seed expense = 25,000;
-- CILOC debt = +25,000;
-- financing draw is not income;
-- reports can show both purpose and financing source.
-
-## Save schema target
-
-Native file: `agForwardFinance.xml`.
-
-Top-level sections expected:
-- schema/version metadata;
-- settings and rate history;
-- farm credit profiles;
-- assets and rights;
-- liabilities;
-- leases;
-- transactions;
-- transaction groups/index metadata;
-- period snapshots;
-- integration metadata.
-
-Unresolved asset links on load must be quarantined/retried rather than silently deleted or treated as satisfied debt.
-
-## Multiplayer rules
-
-- Server owns all authoritative mutation.
-- Client sends requests, never final balances.
-- Server validates farm permissions, product eligibility, values, and asset identity.
-- Creation, payment, payoff, draw, repayment, lease, and recovery require synchronized events or authoritative state refresh.
-- Join-in-progress clients receive current state.
-
-## UI structure
-
-Main AgForward menu pages:
+Main pages:
 - Overview;
 - Banking & Credit;
 - Asset Finance;
 - Land & Leases;
 - Payments & Obligations;
 - Reports;
-- Government (when Red Tape integration is supported);
+- Government/Red Tape when supported;
 - Settings.
 
-Contextual actions:
-- vehicle dealer → Finance with AgForward;
-- construction → Finance Project;
-- farmland map → Buy / Finance / Lease as applicable.
+Contextual entry points:
+- vehicle dealer -> Finance with AgForward;
+- construction -> Finance Project;
+- farmland map -> Buy / Finance / Lease.
 
-## Phase 0 source layout
+## Current source layout
 
 ```text
 src/
   AgForwardFinance.lua
   core/
     ServiceContainer.lua
+    RuntimeStateService.lua
+    Currency.lua
     IdService.lua
+    IntegrityService.lua
+    CompatibilityService.lua
+    SaveService.lua
   ledger/
+    FinancialTaxonomy.lua
     Transaction.lua
     Ledger.lua
+    FinancialOperationCoordinator.lua
+    AccountingService.lua
+  liabilities/
+    Liability.lua
+    LiabilityRegistry.lua
+  input/
+    PurchaseClassificationService.lua
+    InputPurchaseAccumulator.lua
   settlement/
     SettlementCoordinator.lua
   integrations/
     RedTapeAdapter.lua
 ```
 
-Later modules will be added only after core contracts are validated.
+## Phase 0 exit criteria
+
+- clean load with no Lua error;
+- v3 dual-copy save/reload proven;
+- corrupt/newer save protection proven;
+- ID and ledger persistence deterministic;
+- CILOC linked test operation reconciles exactly;
+- server-only mutation proven;
+- initial server-to-client state sync implemented and tested;
+- no-op settlement cannot duplicate;
+- Red Tape present/absent both load/save cleanly;
+- minimal read-only finance diagnostics UI available.
