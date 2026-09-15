@@ -35,13 +35,26 @@ function AGFLedger:createTransaction(farmId, transactionType, amount)
     return transaction
 end
 
-function AGFLedger:post(transaction)
+function AGFLedger:validateTransaction(transaction, pendingIds)
     if transaction == nil or transaction.id == nil or transaction.farmId == nil then
         return false, "INVALID_TRANSACTION"
     end
 
     if self.transactions[transaction.id] ~= nil then
         return false, "DUPLICATE_TRANSACTION_ID"
+    end
+
+    if pendingIds ~= nil and pendingIds[transaction.id] then
+        return false, "DUPLICATE_TRANSACTION_ID_IN_BATCH"
+    end
+
+    return true, nil
+end
+
+function AGFLedger:post(transaction)
+    local valid, errorCode = self:validateTransaction(transaction)
+    if not valid then
+        return false, errorCode
     end
 
     self.transactions[transaction.id] = transaction
@@ -57,6 +70,33 @@ function AGFLedger:post(transaction)
     end
 
     self.idService:observeId(transaction.id)
+    return true, nil
+end
+
+function AGFLedger:postBatch(transactions)
+    if type(transactions) ~= "table" or #transactions == 0 then
+        return false, "EMPTY_BATCH"
+    end
+
+    local pendingIds = {}
+    for _, transaction in ipairs(transactions) do
+        local valid, errorCode = self:validateTransaction(transaction, pendingIds)
+        if not valid then
+            return false, errorCode
+        end
+        pendingIds[transaction.id] = true
+    end
+
+    -- Validation occurs for the entire batch before any transaction is posted.
+    -- With the current in-memory ledger, post() cannot fail after this point
+    -- unless the ledger is externally mutated during this synchronous call.
+    for _, transaction in ipairs(transactions) do
+        local posted, errorCode = self:post(transaction)
+        if not posted then
+            return false, errorCode
+        end
+    end
+
     return true, nil
 end
 
