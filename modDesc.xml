@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="113">
     <author>AgForward Financial Cooperative Project</author>
-    <version>0.0.2.1</version>
+    <version>0.0.3.0</version>
 
     <title>
         <en>AgForward Financial Cooperative</en>
@@ -11,7 +11,7 @@
         <en><![CDATA[
 AgForward is an agriculture-focused financial system for Farming Simulator 25.
 
-Current development focuses on the shared financial core: persistent ledger, purpose-aware accounting, credit products, asset finance, land finance and leasing, settlement, reporting, multiplayer authority, and optional Red Tape integration.
+Current development focuses on the shared financial core: persistent liabilities and ledger, purpose-aware accounting, credit products, asset finance, land finance and leasing, settlement, reporting, multiplayer authority, and optional Red Tape integration.
         ]]></en>
     </description>
 
@@ -23,6 +23,8 @@ Current development focuses on the shared financial core: persistent ledger, pur
         <sourceFile filename="src/ledger/FinancialTaxonomy.lua"/>
         <sourceFile filename="src/ledger/Transaction.lua"/>
         <sourceFile filename="src/ledger/Ledger.lua"/>
+        <sourceFile filename="src/liabilities/Liability.lua"/>
+        <sourceFile filename="src/liabilities/LiabilityRegistry.lua"/>
         <sourceFile filename="src/ledger/AccountingService.lua"/>
         <sourceFile filename="src/settlement/SettlementCoordinator.lua"/>
         <sourceFile filename="src/integrations/RedTapeAdapter.lua"/>
