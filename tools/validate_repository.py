@@ -108,6 +108,8 @@ def validate_expected_files(errors: list[str]) -> None:
         "docs/AGFORWARD_TECHNICAL_SPECIFICATION.md",
         "docs/DONOR_REFERENCE_REAUDIT.md",
         "docs/PHASE0_FOUNDATION_HARDENING.md",
+        "docs/PHASE0_HARDENING_REAUDIT.md",
+        "docs/PHASE0_PERSISTENCE_QA.md",
         "docs/SAVE_SCHEMA_V3.md",
     ]
     for name in required:
@@ -140,7 +142,6 @@ def validate_lua_text(errors: list[str]) -> None:
     for path in ROOT.rglob("*.lua"):
         text = path.read_text(encoding="utf-8")
         if "\t" in text:
-            # Tabs are legal; warn through stdout rather than failing.
             print(f"warning: tab characters in {path.relative_to(ROOT)}")
         if any(fragment in text for fragment in suspicious_path_fragments):
             fail(f"Possible donor source/path import in production Lua: {path.relative_to(ROOT)}", errors)
