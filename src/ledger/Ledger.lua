@@ -1,9 +1,20 @@
 AGFLedger = {}
 AGFLedger_mt = Class(AGFLedger)
 
-function AGFLedger.new(idService)
+local function removeLastValue(list, value)
+    if list == nil then return end
+    for index = #list, 1, -1 do
+        if list[index] == value then
+            table.remove(list, index)
+            return
+        end
+    end
+end
+
+function AGFLedger.new(idService, runtimeState)
     local self = setmetatable({}, AGFLedger_mt)
     self.idService = idService
+    self.runtimeState = runtimeState
     self.transactions = {}
     self.order = {}
     self.byFarm = {}
@@ -16,6 +27,12 @@ function AGFLedger:reset()
     self.order = {}
     self.byFarm = {}
     self.byGroup = {}
+end
+
+function AGFLedger:checkMutationAllowed(internal)
+    if internal then return true, nil end
+    if self.runtimeState == nil then return false, "RUNTIME_STATE_UNAVAILABLE" end
+    return self.runtimeState:canMutate()
 end
 
 function AGFLedger:createGroupId()
@@ -39,24 +56,26 @@ function AGFLedger:validateTransaction(transaction, pendingIds)
     if transaction == nil or transaction.id == nil or transaction.farmId == nil then
         return false, "INVALID_TRANSACTION"
     end
-
+    if transaction.isSealed ~= nil and transaction:isSealed() then
+        return false, "TRANSACTION_ALREADY_SEALED"
+    end
     if self.transactions[transaction.id] ~= nil then
         return false, "DUPLICATE_TRANSACTION_ID"
     end
-
     if pendingIds ~= nil and pendingIds[transaction.id] then
         return false, "DUPLICATE_TRANSACTION_ID_IN_BATCH"
     end
-
     return true, nil
 end
 
-function AGFLedger:post(transaction)
-    local valid, errorCode = self:validateTransaction(transaction)
-    if not valid then
-        return false, errorCode
-    end
+function AGFLedger:post(transaction, internal)
+    local allowed, authorityError = self:checkMutationAllowed(internal)
+    if not allowed then return false, authorityError end
 
+    local valid, errorCode = self:validateTransaction(transaction)
+    if not valid then return false, errorCode end
+
+    transaction:seal()
     self.transactions[transaction.id] = transaction
     table.insert(self.order, transaction.id)
 
@@ -73,7 +92,9 @@ function AGFLedger:post(transaction)
     return true, nil
 end
 
-function AGFLedger:postBatch(transactions)
+function AGFLedger:postBatch(transactions, internal)
+    local allowed, authorityError = self:checkMutationAllowed(internal)
+    if not allowed then return false, authorityError end
     if type(transactions) ~= "table" or #transactions == 0 then
         return false, "EMPTY_BATCH"
     end
@@ -81,36 +102,69 @@ function AGFLedger:postBatch(transactions)
     local pendingIds = {}
     for _, transaction in ipairs(transactions) do
         local valid, errorCode = self:validateTransaction(transaction, pendingIds)
-        if not valid then
-            return false, errorCode
-        end
+        if not valid then return false, errorCode end
         pendingIds[transaction.id] = true
     end
 
-    -- Validation occurs for the entire batch before any transaction is posted.
-    -- With the current in-memory ledger, post() cannot fail after this point
-    -- unless the ledger is externally mutated during this synchronous call.
+    local postedIds = {}
     for _, transaction in ipairs(transactions) do
-        local posted, errorCode = self:post(transaction)
+        local posted, errorCode = self:post(transaction, internal)
         if not posted then
+            self:rollbackBatch(postedIds, true)
             return false, errorCode
         end
+        table.insert(postedIds, transaction.id)
     end
 
     return true, nil
 end
 
-function AGFLedger:getTransaction(id)
+function AGFLedger:rollbackBatch(transactionIds, internal)
+    if not internal then return false, "INTERNAL_ROLLBACK_ONLY" end
+    if type(transactionIds) ~= "table" then return false, "INVALID_ROLLBACK" end
+
+    for index = #transactionIds, 1, -1 do
+        local id = transactionIds[index]
+        if self.order[#self.order] ~= id then
+            return false, "ROLLBACK_NOT_AT_LEDGER_TAIL"
+        end
+
+        local transaction = self.transactions[id]
+        if transaction ~= nil then
+            removeLastValue(self.byFarm[transaction.farmId], id)
+            if transaction.groupId ~= nil then
+                removeLastValue(self.byGroup[transaction.groupId], id)
+            end
+        end
+        self.transactions[id] = nil
+        table.remove(self.order, #self.order)
+    end
+
+    return true, nil
+end
+
+function AGFLedger:getTransactionInternal(id)
     return self.transactions[id]
+end
+
+function AGFLedger:getTransaction(id)
+    local transaction = self.transactions[id]
+    return transaction ~= nil and transaction:clone() or nil
+end
+
+function AGFLedger:getAllTransactionsInternal()
+    local result = {}
+    for _, id in ipairs(self.order) do
+        local transaction = self.transactions[id]
+        if transaction ~= nil then table.insert(result, transaction) end
+    end
+    return result
 end
 
 function AGFLedger:getAllTransactions()
     local result = {}
-    for _, id in ipairs(self.order) do
-        local transaction = self.transactions[id]
-        if transaction ~= nil then
-            table.insert(result, transaction)
-        end
+    for _, transaction in ipairs(self:getAllTransactionsInternal()) do
+        table.insert(result, transaction:clone())
     end
     return result
 end
@@ -119,9 +173,7 @@ function AGFLedger:getFarmTransactions(farmId)
     local result = {}
     for _, id in ipairs(self.byFarm[farmId] or {}) do
         local transaction = self.transactions[id]
-        if transaction ~= nil then
-            table.insert(result, transaction)
-        end
+        if transaction ~= nil then table.insert(result, transaction:clone()) end
     end
     return result
 end
@@ -130,9 +182,7 @@ function AGFLedger:getGroupTransactions(groupId)
     local result = {}
     for _, id in ipairs(self.byGroup[groupId] or {}) do
         local transaction = self.transactions[id]
-        if transaction ~= nil then
-            table.insert(result, transaction)
-        end
+        if transaction ~= nil then table.insert(result, transaction:clone()) end
     end
     return result
 end
@@ -143,7 +193,6 @@ end
 
 function AGFLedger:saveToXMLFile(xmlFile, key)
     setXMLInt(xmlFile, key .. "#transactionCount", #self.order)
-
     local writeIndex = 0
     for _, id in ipairs(self.order) do
         local transaction = self.transactions[id]
@@ -157,28 +206,22 @@ end
 
 function AGFLedger:loadFromXMLFile(xmlFile, key)
     self:reset()
-
     local index = 0
+    local errors = {}
+
     while true do
         local transactionKey = string.format("%s.transactions.transaction(%d)", key, index)
-        if not hasXMLProperty(xmlFile, transactionKey .. "#id") then
-            break
-        end
+        if not hasXMLProperty(xmlFile, transactionKey .. "#id") then break end
 
         local transaction = AGFTransaction.loadFromXMLFile(xmlFile, transactionKey)
         if transaction ~= nil then
-            local posted, errorCode = self:post(transaction)
+            local posted, errorCode = self:post(transaction, true)
             if not posted then
-                print(string.format(
-                    "Warning: AgForward skipped saved transaction '%s' (%s)",
-                    tostring(transaction.id),
-                    tostring(errorCode)
-                ))
+                table.insert(errors, string.format("%s:%s", tostring(transaction.id), tostring(errorCode)))
             end
         end
-
         index = index + 1
     end
 
-    return #self.order
+    return #self.order, errors
 end
