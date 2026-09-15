@@ -5,9 +5,10 @@
 AGFAccountingService = {}
 AGFAccountingService_mt = Class(AGFAccountingService)
 
-function AGFAccountingService.new(ledger)
+function AGFAccountingService.new(ledger, liabilities)
     local self = setmetatable({}, AGFAccountingService_mt)
     self.ledger = ledger
+    self.liabilities = liabilities
     return self
 end
 
@@ -30,6 +31,16 @@ function AGFAccountingService:postCashExpense(farmId, amount, expenseCategory, d
     return true, transaction
 end
 
+function AGFAccountingService:getExpectedRevolvingProduct(fundingSource)
+    if fundingSource == AGFFundingSource.OPERATING_LINE then
+        return AGFProductType.OPERATING_LINE
+    end
+    if fundingSource == AGFFundingSource.CROP_INPUT_LINE then
+        return AGFProductType.CROP_INPUT_LINE
+    end
+    return nil
+end
+
 function AGFAccountingService:postFundedInputPurchase(farmId, amount, expenseCategory, fundingSource, liabilityId, description)
     amount = math.abs(tonumber(amount) or 0)
     if amount <= 0 then
@@ -44,6 +55,26 @@ function AGFAccountingService:postFundedInputPurchase(farmId, amount, expenseCat
         return false, "LIABILITY_REQUIRED"
     end
 
+    local expectedProductType = self:getExpectedRevolvingProduct(fundingSource)
+    if expectedProductType == nil then
+        return false, "UNSUPPORTED_DIRECT_FUNDING_SOURCE"
+    end
+
+    if self.liabilities == nil then
+        return false, "LIABILITY_REGISTRY_UNAVAILABLE"
+    end
+
+    local canDraw, liabilityOrError = self.liabilities:canDraw(
+        liabilityId,
+        farmId,
+        amount,
+        expectedProductType
+    )
+    if not canDraw then
+        return false, liabilityOrError
+    end
+
+    local liability = liabilityOrError
     local groupId = self.ledger:createGroupId()
 
     local draw = self.ledger:createTransaction(farmId, AGFTransactionType.CREDIT_DRAW, amount)
@@ -52,6 +83,7 @@ function AGFAccountingService:postFundedInputPurchase(farmId, amount, expenseCat
     draw:setLiabilityId(liabilityId)
     draw:setDescription(description)
     draw:setMetadata("economicRole", "financing")
+    draw:setMetadata("productType", liability.productType)
 
     local purchase = self.ledger:createTransaction(farmId, AGFTransactionType.INPUT_PURCHASE, -amount)
     purchase:setGroupId(groupId)
@@ -60,16 +92,23 @@ function AGFAccountingService:postFundedInputPurchase(farmId, amount, expenseCat
     purchase:setLiabilityId(liabilityId)
     purchase:setDescription(description)
     purchase:setMetadata("economicRole", "expense")
+    purchase:setMetadata("productType", liability.productType)
 
     local posted, errorCode = self.ledger:postBatch({draw, purchase})
     if not posted then
         return false, errorCode
     end
 
+    -- The draw has already passed registry validation. Updating the principal
+    -- only after the linked ledger batch succeeds prevents a liability balance
+    -- increase without matching accounting entries.
+    liability.principalBalance = liability.principalBalance + amount
+
     return true, {
         groupId = groupId,
         draw = draw,
-        purchase = purchase
+        purchase = purchase,
+        liability = liability
     }
 end
 
