@@ -28,30 +28,48 @@ AgForward is intended to natively provide:
 
 Trade-in/dealer functionality is intentionally deferred until the native financial core is mature.
 
-## Governing documents
+## Governing / research documents
 
-- `docs/AGFORWARD_CURRENT_AUTHORITY.md` — current project authority and locked decisions.
-- `docs/AGFORWARD_TECHNICAL_SPECIFICATION.md` — system architecture and technical requirements.
-- `docs/AGFORWARD_ACTION_AUDIT.md` — lessons and functional requirements derived from reference-mod audits.
-- `docs/PRODUCT_REQUIREMENTS.md` — player-facing financial products and behaviors.
+- `docs/AGFORWARD_CURRENT_AUTHORITY.md` — current branch authority and locked decisions.
+- `docs/AGFORWARD_TECHNICAL_SPECIFICATION.md` — current system architecture and technical contracts.
+- `docs/PRODUCT_REQUIREMENTS.md` — player-facing product requirements.
 - `docs/DEVELOPMENT_ROADMAP.md` — staged implementation plan.
+- `docs/DONOR_REFERENCE_REAUDIT.md` — comprehensive implementation-neutral donor/reference re-audit.
+- `docs/PHASE0_HARDENING_REAUDIT.md` — post-hardening code/design re-audit and remaining gates.
+- `docs/PHASE0_PERSISTENCE_QA.md` — disposable-save runtime validation plan.
+- `docs/SAVE_SCHEMA_V3.md` — fail-safe financial persistence schema.
 - `docs/REDTAPE_INTEGRATION.md` — optional Red Tape accounting/integration boundary.
 - `docs/LICENSE_AND_REFERENCE_POLICY.md` — rules for independent implementation and third-party references.
 
 ## Current status
 
-**Phase 0 — Foundation / architecture baseline.**
+Development is currently on **Phase 0 — Foundation & Financial Integrity**.
 
-The first implementation target is the shared core: service container, stable IDs, save/load, ledger, transaction classification, multiplayer state, settlement coordination, Red Tape detection, and a minimal AgForward finance screen.
+The `phase0-foundation-hardening` branch contains build target `0.0.4.0` and authority `A004-HARDENING`. It adds:
+
+- read-only safe mode and newer-schema write protection;
+- dual-copy financial persistence with recovery generations;
+- post-load/pre-save integrity validation;
+- cent-normalized money handling;
+- immutable posted ledger records;
+- protected native liability balances;
+- coordinated linked financial operations;
+- persisted settlement idempotency;
+- Crop Input LOC purchase classification/accumulation foundations;
+- known overlapping-finance-mod warnings;
+- static repository validation and CI;
+- a full donor/reference re-audit.
+
+**Runtime validation is still pending.** The hardening branch intentionally does not move real AgForward money yet and is not considered production-save ready.
 
 ## Naming
 
 Formal institution name: **AgForward Financial Cooperative**  
 Player-facing brand: **AgForward**  
-Proposed mod package: **`FS25_AgForwardFinance`**  
+Target mod package: **`FS25_AgForwardFinance`**  
 Primary namespace: **`AgForwardFinance`**  
 Internal prefix: **`AGF`**
 
 ## Original implementation policy
 
-AgForward is intended to be independently implemented. Third-party mods may be studied for behavior, compatibility requirements, and interoperability, but their protected source code, assets, strings, icons, or distinctive implementation details are not to be copied into this repository.
+AgForward is independently implemented under the repository's MIT license. Third-party mods may be studied for player-facing behavior, compatibility requirements, FS25 extension points, and failure modes, but their protected source code, assets, strings, icons, UI, or distinctive implementation details are not copied into AgForward.
