@@ -19,13 +19,15 @@ function AgForwardFinance:loadMap(mapName)
     local services = AGFServiceContainer.new()
     local idService = AGFIdService.new()
     local ledger = AGFLedger.new(idService)
-    local accounting = AGFAccountingService.new(ledger)
+    local liabilities = AGFLiabilityRegistry.new(idService)
+    local accounting = AGFAccountingService.new(ledger, liabilities)
     local redTapeAdapter = AGFRedTapeAdapter.new()
     local settlement = AGFSettlementCoordinator.new(services)
     local saveService = AGFSaveService.new(services)
 
     services:register("idService", idService)
     services:register("ledger", ledger)
+    services:register("liabilities", liabilities)
     services:register("accounting", accounting)
     services:register("redTape", redTapeAdapter)
     services:register("settlement", settlement)
@@ -47,8 +49,9 @@ function AgForwardFinance:loadMap(mapName)
     end
 
     print(string.format(
-        "AgForward: initialized (Red Tape: %s, ledger transactions: %d, save: %s)",
+        "AgForward: initialized (Red Tape: %s, liabilities: %d, ledger transactions: %d, save: %s)",
         tostring(redTapeAdapter:getStatus()),
+        #liabilities:getAll(),
         ledger:getTransactionCount(),
         tostring(saveService.lastLoadStatus)
     ))
