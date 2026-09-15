@@ -16,20 +16,19 @@ function AGFCreditProfileBuilder.new(liabilityRegistry, externalRegistry, assetR
     return self
 end
 
+local QUALITY_RANK = {
+    [AGFCreditDataQuality.COMPLETE] = 0,
+    [AGFCreditDataQuality.INSUFFICIENT_HISTORY] = 1,
+    [AGFCreditDataQuality.ASSET_LINK_UNRESOLVED] = 2,
+    [AGFCreditDataQuality.PARTIAL_EXTERNAL_DEBT] = 3,
+    [AGFCreditDataQuality.UNKNOWN_EXTERNAL_DEBT] = 4
+}
+
 local function addIssue(profile, quality, code, detail)
     profile:addQualityIssue(code, detail)
-    if profile.dataQuality == AGFCreditDataQuality.COMPLETE then
-        profile.dataQuality = quality
-    elseif quality == AGFCreditDataQuality.UNKNOWN_EXTERNAL_DEBT then
-        profile.dataQuality = quality
-    elseif quality == AGFCreditDataQuality.PARTIAL_EXTERNAL_DEBT
-        and profile.dataQuality ~= AGFCreditDataQuality.UNKNOWN_EXTERNAL_DEBT then
-        profile.dataQuality = quality
-    elseif quality == AGFCreditDataQuality.ASSET_LINK_UNRESOLVED
-        and profile.dataQuality == AGFCreditDataQuality.COMPLETE then
-        profile.dataQuality = quality
-    elseif quality == AGFCreditDataQuality.INSUFFICIENT_HISTORY
-        and profile.dataQuality == AGFCreditDataQuality.COMPLETE then
+    local currentRank = QUALITY_RANK[profile.dataQuality] or 0
+    local proposedRank = QUALITY_RANK[quality] or 0
+    if proposedRank > currentRank then
         profile.dataQuality = quality
     end
 end
