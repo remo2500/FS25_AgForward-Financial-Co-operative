@@ -12,6 +12,8 @@ dofile("src/core/IdService.lua")
 dofile("src/ledger/FinancialTaxonomy.lua")
 dofile("src/liabilities/Liability.lua")
 dofile("src/liabilities/LiabilityRegistry.lua")
+dofile("src/credit/ExternalObligation.lua")
+dofile("src/credit/ExternalObligationRegistry.lua")
 dofile("src/assets/AssetRecord.lua")
 dofile("src/assets/AssetRight.lua")
 dofile("src/assets/Lien.lua")
@@ -20,6 +22,7 @@ dofile("src/assets/AssetRightRegistry.lua")
 dofile("src/assets/LienRegistry.lua")
 dofile("src/assets/AssetLinkQuarantine.lua")
 dofile("src/assets/SecuredDispositionService.lua")
+dofile("src/reporting/OverviewSnapshotService.lua")
 
 local function assertEqual(actual, expected, message)
     if actual ~= expected then
@@ -37,11 +40,13 @@ end
 
 local ids = AGFIdService.new()
 local liabilities = AGFLiabilityRegistry.new(ids, nil)
+local external = AGFExternalObligationRegistry.new(ids)
 local assets = AGFAssetRegistry.new(ids, nil)
 local rights = AGFAssetRightRegistry.new(ids, nil, assets)
 local liens = AGFLienRegistry.new(ids, nil, assets, liabilities)
 local quarantine = AGFAssetLinkQuarantine.new()
 local disposition = AGFSecuredDispositionService.new(assets, liens, liabilities, rights)
+local overview = AGFOverviewSnapshotService.new(liabilities, external, assets, rights, liens, nil)
 
 -- Register secured term debt.
 local liability, liabilityError = liabilities:create(1, AGFProductType.TERM_LOAN, "Equipment note")
@@ -73,6 +78,35 @@ assertEqual(lienError, nil, "lien create error")
 local lienRegistered, lienRegisterError = liens:register(lien)
 assertTrue(lienRegistered, lienRegisterError)
 assertTrue(liens:hasActiveLien(asset.id), "asset has active lien")
+
+-- Represent one verified base-game obligation without pretending AgForward owns it.
+local externalLoan, externalError = external:create(1, AGFExternalObligationType.BASE_GAME_LOAN, "baseGame", "Existing farm loan")
+assertEqual(externalError, nil, "external obligation create error")
+externalLoan.principalBalance = 20000
+externalLoan.annualDebtService = 4000
+externalLoan.dataQuality = AGFExternalObligationQuality.VERIFIED
+local externalRegistered, externalRegisterError = external:register(externalLoan)
+assertTrue(externalRegistered, externalRegisterError)
+
+local externalTotals = external:getFarmTotals(1)
+assertEqual(externalTotals.principalBalance, 20000, "external principal total")
+assertEqual(externalTotals.annualDebtService, 4000, "external debt service total")
+assertEqual(externalTotals.verifiedCount, 1, "verified external count")
+
+-- Read-only overview derives its values from registries rather than owning balances.
+local summary = overview:build(1, {
+    cashBalance = 10000,
+    otherOwnedAssetValue = 20000,
+    recentTransactionLimit = 0
+})
+assertEqual(summary.nativeDebt, 60000, "overview native debt")
+assertEqual(summary.externalDebt, 20000, "overview external debt")
+assertEqual(summary.registeredOwnedAssetValue, 50000, "overview registered asset value")
+assertEqual(summary.representedAssets, 80000, "overview represented assets")
+assertEqual(summary.representedLiabilities, 80000, "overview represented liabilities")
+assertEqual(summary.representedEquity, 0, "overview represented equity")
+assertEqual(summary.activeLienCount, 1, "overview lien count")
+assertEqual(summary.dataQuality, "COMPLETE_NATIVE_VIEW", "overview data quality")
 
 -- A $50k sale against $60k debt needs $10k borrower cash.
 local preflightOk, preflight = disposition:preflight(asset.id, 50000, 5000, 1)
