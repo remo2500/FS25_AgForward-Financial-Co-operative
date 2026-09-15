@@ -41,19 +41,28 @@ function AGFRatePricingService.quote(components)
     local structureAdjustment, structureError = normalizeComponent(components.structureAdjustment, "STRUCTURE_ADJUSTMENT")
     if structureAdjustment == nil then return false, structureError end
 
-    local rawRate = baseRate + productSpread + riskSpread + termAdjustment + structureAdjustment
-    if rawRate < 0 then return false, "NEGATIVE_FINAL_RATE" end
+    -- Price/display components at one-basis-point precision so the visible
+    -- components always reconcile exactly to the visible contract rate.
+    baseRate = AGFRatePricingService.roundToBasisPoint(baseRate)
+    productSpread = AGFRatePricingService.roundToBasisPoint(productSpread)
+    riskSpread = AGFRatePricingService.roundToBasisPoint(riskSpread)
+    termAdjustment = AGFRatePricingService.roundToBasisPoint(termAdjustment)
+    structureAdjustment = AGFRatePricingService.roundToBasisPoint(structureAdjustment)
 
-    local finalRate = AGFRatePricingService.roundToBasisPoint(rawRate)
+    local finalRate = AGFRatePricingService.roundToBasisPoint(
+        baseRate + productSpread + riskSpread + termAdjustment + structureAdjustment
+    )
+    if finalRate < 0 then return false, "NEGATIVE_FINAL_RATE" end
+
     local valid, rateOrError = AGFRateConvention.validateAnnualRate(finalRate)
     if not valid then return false, rateOrError end
 
     return true, {
-        baseRate = AGFRatePricingService.roundToBasisPoint(baseRate),
-        productSpread = AGFRatePricingService.roundToBasisPoint(productSpread),
-        riskSpread = AGFRatePricingService.roundToBasisPoint(riskSpread),
-        termAdjustment = AGFRatePricingService.roundToBasisPoint(termAdjustment),
-        structureAdjustment = AGFRatePricingService.roundToBasisPoint(structureAdjustment),
+        baseRate = baseRate,
+        productSpread = productSpread,
+        riskSpread = riskSpread,
+        termAdjustment = termAdjustment,
+        structureAdjustment = structureAdjustment,
         annualRate = rateOrError,
         annualPercent = rateOrError * 100
     }
