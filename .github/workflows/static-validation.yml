@@ -26,6 +26,9 @@ jobs:
       - name: Validate repository structure
         run: python tools/validate_repository.py
 
+      - name: Test runtime analysis tools
+        run: python -m unittest tests/test_runtime_tools.py
+
       - name: Install Lua 5.1
         run: |
           sudo apt-get update
