@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<l10n>
+    <texts>
+        <text name="agf_title" text="AgForward"/>
+        <text name="agf_fullName" text="AgForward Financial Cooperative"/>
+        <text name="agf_overview" text="Overview"/>
+        <text name="agf_bankingCredit" text="Banking &amp; Credit"/>
+        <text name="agf_assetFinance" text="Asset Finance"/>
+        <text name="agf_landLeases" text="Land &amp; Leases"/>
+        <text name="agf_payments" text="Payments &amp; Obligations"/>
+        <text name="agf_reports" text="Reports"/>
+        <text name="agf_cropInputLine" text="Crop Input Line of Credit"/>
+    </texts>
+</l10n>
