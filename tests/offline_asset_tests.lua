@@ -38,12 +38,18 @@ local function assertFalse(value, message)
     if value ~= false then error(message or "expected false") end
 end
 
+local writableRuntime = {
+    canMutate = function()
+        return true, nil
+    end
+}
+
 local ids = AGFIdService.new()
-local liabilities = AGFLiabilityRegistry.new(ids, nil)
+local liabilities = AGFLiabilityRegistry.new(ids, writableRuntime)
 local external = AGFExternalObligationRegistry.new(ids)
-local assets = AGFAssetRegistry.new(ids, nil)
-local rights = AGFAssetRightRegistry.new(ids, nil, assets)
-local liens = AGFLienRegistry.new(ids, nil, assets, liabilities)
+local assets = AGFAssetRegistry.new(ids, writableRuntime)
+local rights = AGFAssetRightRegistry.new(ids, writableRuntime, assets)
+local liens = AGFLienRegistry.new(ids, writableRuntime, assets, liabilities)
 local quarantine = AGFAssetLinkQuarantine.new()
 local disposition = AGFSecuredDispositionService.new(assets, liens, liabilities, rights)
 local overview = AGFOverviewSnapshotService.new(liabilities, external, assets, rights, liens, nil)
