@@ -5,6 +5,7 @@ dofile("src/core/Currency.lua")
 dofile("src/finance/RateConvention.lua")
 dofile("src/finance/AmortizationService.lua")
 dofile("src/credit/CreditMetrics.lua")
+dofile("src/input/FundingDecisionService.lua")
 
 local function assertEqual(actual, expected, message)
     if actual ~= expected then
@@ -20,6 +21,10 @@ end
 
 local function assertTrue(value, message)
     if value ~= true then error(message or "expected true") end
+end
+
+local function assertFalse(value, message)
+    if value ~= false then error(message or "expected false") end
 end
 
 -- Currency normalization.
@@ -89,5 +94,59 @@ assertNear(AGFCreditMetrics.calculateCurrentRatio(250000, 125000), 2.0, 0.000000
 assertNear(AGFCreditMetrics.calculateRevolverUtilization(75000, 250000), 0.3, 0.0000000001, "revolver utilization")
 assertNear(AGFCreditMetrics.calculateLiquidityCoverage(100000, 50000, 100000), 1.5, 0.0000000001, "liquidity coverage")
 assertEqual(AGFCreditMetrics.calculateDSCR(100000, 0), nil, "no debt service -> DSCR N/A")
+
+-- Crop Input LOC funding allocation policies.
+local shortfallOk, shortfall = AGFFundingDecisionService.decide(
+    30000,
+    12000,
+    100000,
+    true,
+    AGFFundingPolicy.CASH_SHORTFALL_ONLY
+)
+assertTrue(shortfallOk, "shortfall policy approved")
+assertEqual(shortfall.cashContribution, 12000, "shortfall cash contribution")
+assertEqual(shortfall.lineContribution, 18000, "shortfall line contribution")
+
+local preferOk, prefer = AGFFundingDecisionService.decide(
+    30000,
+    15000,
+    20000,
+    true,
+    AGFFundingPolicy.PREFER_LINE
+)
+assertTrue(preferOk, "prefer-line policy approved")
+assertEqual(prefer.lineContribution, 20000, "prefer-line draw")
+assertEqual(prefer.cashContribution, 10000, "prefer-line cash remainder")
+
+local alwaysOk, always = AGFFundingDecisionService.decide(
+    30000,
+    50000,
+    30000,
+    true,
+    AGFFundingPolicy.ALWAYS_LINE
+)
+assertTrue(alwaysOk, "always-line policy approved")
+assertEqual(always.cashContribution, 0, "always-line cash contribution")
+assertEqual(always.lineContribution, 30000, "always-line draw")
+
+local alwaysFail, alwaysFailError = AGFFundingDecisionService.decide(
+    30000,
+    50000,
+    29999.99,
+    true,
+    AGFFundingPolicy.ALWAYS_LINE
+)
+assertFalse(alwaysFail, "always-line insufficient credit rejected")
+assertEqual(alwaysFailError, "INSUFFICIENT_CREDIT", "always-line insufficient credit error")
+
+local ineligibleFail, ineligibleFailError = AGFFundingDecisionService.decide(
+    30000,
+    10000,
+    100000,
+    false,
+    AGFFundingPolicy.PREFER_LINE
+)
+assertFalse(ineligibleFail, "ineligible purchase cannot borrow")
+assertEqual(ineligibleFailError, "INSUFFICIENT_CASH", "ineligible purchase uses cash-only rule")
 
 print("offline_finance_tests: PASS")
