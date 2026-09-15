@@ -42,3 +42,6 @@ jobs:
 
       - name: Run offline policy and protocol tests
         run: lua5.1 tests/offline_policy_tests.lua
+
+      - name: Run offline reporting tests
+        run: lua5.1 tests/offline_reporting_tests.lua
