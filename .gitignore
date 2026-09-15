@@ -1,0 +1,16 @@
+# Packaged mod output
+*.zip
+
+# Local save/test artifacts
+savegame*/
+*.log
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.bak
