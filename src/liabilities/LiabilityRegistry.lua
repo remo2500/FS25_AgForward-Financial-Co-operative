@@ -43,6 +43,8 @@ function AGFLiabilityRegistry:create(farmId, productType, displayName)
         liability.startPeriod = g_currentMission.environment.currentPeriod
     end
 
+    -- Returned record is a mutable draft. register() clones it into authoritative
+    -- storage so the caller cannot mutate a registered liability through this handle.
     return liability, nil
 end
 
@@ -56,17 +58,18 @@ function AGFLiabilityRegistry:register(liability, internal)
         return false, "DUPLICATE_LIABILITY_ID"
     end
 
-    self.liabilities[liability.id] = liability
-    table.insert(self.order, liability.id)
+    local stored = liability:clone()
+    self.liabilities[stored.id] = stored
+    table.insert(self.order, stored.id)
 
-    self.byFarm[liability.farmId] = self.byFarm[liability.farmId] or {}
-    table.insert(self.byFarm[liability.farmId], liability.id)
+    self.byFarm[stored.farmId] = self.byFarm[stored.farmId] or {}
+    table.insert(self.byFarm[stored.farmId], stored.id)
 
-    self.byProduct[liability.productType] = self.byProduct[liability.productType] or {}
-    table.insert(self.byProduct[liability.productType], liability.id)
+    self.byProduct[stored.productType] = self.byProduct[stored.productType] or {}
+    table.insert(self.byProduct[stored.productType], stored.id)
 
-    self.idService:observeId(liability.id)
-    return true, nil
+    self.idService:observeId(stored.id)
+    return true, stored:clone()
 end
 
 function AGFLiabilityRegistry:getInternal(id)
@@ -142,15 +145,15 @@ function AGFLiabilityRegistry:canDraw(liabilityId, farmId, amount, expectedProdu
     return true, liability:clone()
 end
 
+-- Public balance changes are deliberately blocked. Every debt mutation must be
+-- journaled by the financial operation coordinator before using an internal
+-- committed mutation below.
 function AGFLiabilityRegistry:applyDraw(liabilityId, amount)
-    local allowed, errorCode = self:checkMutationAllowed(false)
-    if not allowed then return false, errorCode end
+    return false, "OPERATION_COORDINATOR_REQUIRED"
+end
 
-    local liability = self:getInternal(liabilityId)
-    if liability == nil then return false, "UNKNOWN_LIABILITY" end
-    local canDraw, result = self:canDraw(liabilityId, liability.farmId, amount)
-    if not canDraw then return false, result end
-    return self:applyDrawCommitted(liabilityId, amount, true)
+function AGFLiabilityRegistry:applyPrincipalPayment(liabilityId, amount)
+    return false, "OPERATION_COORDINATOR_REQUIRED"
 end
 
 function AGFLiabilityRegistry:applyDrawCommitted(liabilityId, amount, internal)
@@ -177,8 +180,8 @@ function AGFLiabilityRegistry:revertDrawCommitted(liabilityId, amount, internal)
     return true, liability:clone()
 end
 
-function AGFLiabilityRegistry:applyPrincipalPayment(liabilityId, amount)
-    local allowed, errorCode = self:checkMutationAllowed(false)
+function AGFLiabilityRegistry:applyPrincipalPaymentCommitted(liabilityId, amount, internal)
+    local allowed, errorCode = self:checkMutationAllowed(internal)
     if not allowed then return false, errorCode end
 
     amount = math.abs(AGFCurrency.round(amount or 0))
@@ -186,10 +189,22 @@ function AGFLiabilityRegistry:applyPrincipalPayment(liabilityId, amount)
     local liability = self:getInternal(liabilityId)
     if liability == nil then return false, "UNKNOWN_LIABILITY" end
 
-    local applied = math.min(amount, math.max(0, liability.principalBalance))
-    applied = AGFCurrency.round(applied)
+    local applied = AGFCurrency.round(math.min(amount, math.max(0, liability.principalBalance)))
     liability.principalBalance = math.max(0, AGFCurrency.round(liability.principalBalance - applied))
-    return true, applied
+    return true, applied, liability:clone()
+end
+
+function AGFLiabilityRegistry:revertPrincipalPaymentCommitted(liabilityId, amount, internal)
+    local allowed, errorCode = self:checkMutationAllowed(internal)
+    if not allowed then return false, errorCode end
+
+    amount = math.abs(AGFCurrency.round(amount or 0))
+    if amount <= 0 then return false, "INVALID_AMOUNT" end
+    local liability = self:getInternal(liabilityId)
+    if liability == nil then return false, "UNKNOWN_LIABILITY" end
+
+    liability.principalBalance = AGFCurrency.round((liability.principalBalance or 0) + amount)
+    return true, liability:clone()
 end
 
 function AGFLiabilityRegistry:saveToXMLFile(xmlFile, key)
