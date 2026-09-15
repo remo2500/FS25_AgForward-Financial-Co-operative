@@ -5,6 +5,7 @@ dofile("src/core/Currency.lua")
 dofile("src/finance/RateConvention.lua")
 dofile("src/finance/RatePricingService.lua")
 dofile("src/finance/AmortizationService.lua")
+dofile("src/finance/LoanQuoteService.lua")
 dofile("src/credit/CreditMetrics.lua")
 dofile("src/input/FundingDecisionService.lua")
 
@@ -103,6 +104,37 @@ assertEqual(payoff.principal, 50000, "payoff principal")
 assertEqual(payoff.interest, 250, "payoff interest")
 assertEqual(payoff.fees, 75, "payoff fees")
 assertEqual(payoff.total, 50325, "payoff total")
+
+-- Unified product quote shares pricing + amortization rather than product-local math.
+local quoteOk, quote = AGFLoanQuoteService.quote({
+    purchasePrice = 250000,
+    downPayment = 50000,
+    periods = 60,
+    balloonPercent = 0.20,
+    rateComponents = {
+        baseRate = 0.045,
+        productSpread = 0.0125,
+        riskSpread = 0.0075,
+        termAdjustment = 0.001,
+        structureAdjustment = -0.0005
+    }
+})
+assertTrue(quoteOk, "unified quote approved")
+assertEqual(quote.principal, 200000, "quote principal")
+assertEqual(quote.balloonAmount, 40000, "quote balloon")
+assertNear(quote.pricing.annualRate, 0.0655, 0.0000000001, "quote rate")
+assertTrue(quote.quotedRegularPayment > 0, "quote regular payment positive")
+assertTrue(quote.totalInterest > 0, "quote interest positive")
+assertTrue(AGFCurrency.equals(quote.amortization.totalPrincipal, 200000), "quote principal reconciles")
+
+local invalidQuoteOk, invalidQuoteError = AGFLoanQuoteService.quote({
+    purchasePrice = 100000,
+    downPayment = 110000,
+    periods = 12,
+    rateComponents = {baseRate = 0.05}
+})
+assertFalse(invalidQuoteOk, "down payment above price rejected")
+assertEqual(invalidQuoteError, "DOWN_PAYMENT_EXCEEDS_PURCHASE_PRICE", "invalid down payment error")
 
 -- Whole-farm credit metrics.
 assertNear(AGFCreditMetrics.calculateDSCR(150000, 100000), 1.5, 0.0000000001, "DSCR")
