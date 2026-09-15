@@ -6,6 +6,7 @@ dofile("src/finance/RateConvention.lua")
 dofile("src/finance/RatePricingService.lua")
 dofile("src/finance/AmortizationService.lua")
 dofile("src/finance/LoanQuoteService.lua")
+dofile("src/finance/RevolvingInterestService.lua")
 dofile("src/credit/CreditMetrics.lua")
 dofile("src/input/FundingDecisionService.lua")
 
@@ -135,6 +136,41 @@ local invalidQuoteOk, invalidQuoteError = AGFLoanQuoteService.quote({
 })
 assertFalse(invalidQuoteOk, "down payment above price rejected")
 assertEqual(invalidQuoteError, "DOWN_PAYMENT_EXCEEDS_PURCHASE_PRICE", "invalid down payment error")
+
+-- Revolving credit uses time-weighted balance within the financial period.
+-- Start at $20k, draw $10k halfway through the period: average balance = $25k.
+local lineInterest, lineInterestError = AGFRevolvingInterestService.calculatePeriodInterest(
+    20000,
+    {{periodFraction = 0.5, amount = 10000, sequence = 1}},
+    0.12
+)
+assertEqual(lineInterestError, nil, "revolving interest error")
+assertEqual(lineInterest.openingBalance, 20000, "revolving opening balance")
+assertEqual(lineInterest.endingBalance, 30000, "revolving ending balance")
+assertEqual(lineInterest.averageBalance, 25000, "revolving weighted average balance")
+assertEqual(lineInterest.interest, 250, "revolving monthly interest")
+
+-- Draw at quarter and repay at three-quarter: balance is 20k for half the period.
+local stagedInterest, stagedInterestError = AGFRevolvingInterestService.calculatePeriodInterest(
+    10000,
+    {
+        {periodFraction = 0.25, amount = 10000, sequence = 1},
+        {periodFraction = 0.75, amount = -10000, sequence = 2}
+    },
+    0.12
+)
+assertEqual(stagedInterestError, nil, "staged revolving interest error")
+assertEqual(stagedInterest.endingBalance, 10000, "staged ending balance")
+assertEqual(stagedInterest.averageBalance, 15000, "staged average balance")
+assertEqual(stagedInterest.interest, 150, "staged interest")
+
+local overRepay, overRepayError = AGFRevolvingInterestService.calculatePeriodInterest(
+    5000,
+    {{periodFraction = 0.5, amount = -6000, sequence = 1}},
+    0.12
+)
+assertEqual(overRepay, nil, "revolving over-repayment rejected")
+assertEqual(overRepayError, "BALANCE_CHANGE_OVER_REPAYS_LINE", "revolving over-repayment error")
 
 -- Whole-farm credit metrics.
 assertNear(AGFCreditMetrics.calculateDSCR(150000, 100000), 1.5, 0.0000000001, "DSCR")
