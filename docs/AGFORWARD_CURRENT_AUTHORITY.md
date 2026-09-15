@@ -3,9 +3,9 @@
 **Project:** AgForward Financial Cooperative  
 **Public brand:** AgForward  
 **Repository:** `remo2500/FS25_AgForward-Financial-Co-operative`  
-**Authority revision:** A001  
+**Authority revision:** A002  
 **Date:** 2026-09-15  
-**Status:** ACTIVE — Phase 0 foundation
+**Status:** ACTIVE — Phase 0 foundation / persistence implementation underway
 
 This document is the governing coordination file for AgForward. When another project document conflicts with this file, this file controls until deliberately revised.
 
@@ -16,7 +16,7 @@ This document is the governing coordination file for AgForward. When another pro
 - Mod package target: `FS25_AgForwardFinance`.
 - Primary Lua namespace: `AgForwardFinance`.
 - Internal short prefix: `AGF`.
-- Native save file target: `agForwardFinance.xml`.
+- Native save file: `agForwardFinance.xml`.
 - Localization key prefix: `agf_`.
 
 ## 2. Locked product direction
@@ -50,6 +50,8 @@ Trade-in/dealer replacement functionality is **deferred** and may be added later
 11. Consequential multiplayer actions are server-authoritative.
 12. Red Tape integration is isolated behind an adapter.
 13. Third-party protected source, assets, UI text, icons, or distinctive implementations are not copied.
+14. Financing source and economic purpose are independent accounting dimensions.
+15. Native AgForward IDs must remain stable across save/load cycles and may never be silently reused.
 
 ## 4. Locked native product families
 
@@ -127,7 +129,22 @@ CILOC usage modes targeted for design:
 
 Potential later features include seasonal limits based on acres/costs and harvest-proceeds sweeps.
 
-## 6. Red Tape boundary
+## 6. Native ledger conventions — locked
+
+AgForward's native ledger uses the following conventions:
+
+- cash/economic inflows are positive amounts;
+- cash/economic outflows are negative amounts;
+- liability draws/proceeds are financing entries, not income;
+- principal repayments reduce liabilities and are not operating expenses;
+- interest and fees are separately identifiable;
+- expense categories describe purpose, not funding source;
+- linked multi-entry events use a shared AgForward group ID;
+- grouped entries are pre-validated before posting to prevent partial accounting records.
+
+The canonical internal taxonomy is defined by `src/ledger/FinancialTaxonomy.lua`.
+
+## 7. Red Tape boundary
 
 Red Tape owns:
 
@@ -147,7 +164,7 @@ AgForward owns economic truth for its finance system and must preserve transacti
 - asset purchases/sales: asset transactions;
 - grants: external funding source when provided by Red Tape.
 
-## 7. Trade-in status
+## 8. Trade-in status
 
 **DEFERRED.**
 
@@ -157,7 +174,7 @@ The asset/lien model must nevertheless preserve enough information to support a 
 
 No first-phase dependency on Trade In is permitted.
 
-## 8. Current development phase
+## 9. Current development phase
 
 ### Phase 0 — Foundation
 
@@ -171,6 +188,7 @@ Required foundation work:
 - transaction model;
 - journal/ledger;
 - transaction taxonomy;
+- purpose-aware accounting service;
 - MoneyType/FinanceStats planning and registration;
 - initial multiplayer state model;
 - single period-change settlement coordinator;
@@ -179,7 +197,39 @@ Required foundation work:
 - minimal AgForward finance UI;
 - save/load/reload QA in single-player and multiplayer.
 
-## 9. Non-goals for Phase 0
+### Implemented in repository as of A002
+
+- project/bootstrap structure;
+- service container;
+- persistent ID service with collision protection;
+- canonical financial taxonomy;
+- transaction model with breakdown, funding source, expense category, references, and metadata;
+- ordered central ledger;
+- pre-validated batch posting for linked economic events;
+- purpose-aware accounting service;
+- CILOC linked draw + input-purchase ledger API;
+- native save schema v1;
+- server-authoritative `agForwardFinance.xml` load/save service;
+- appended mission save hook designed to coexist with other save hooks;
+- empty Phase 0 period settlement coordinator;
+- Red Tape presence-detection adapter;
+- Phase 0 persistence QA specification.
+
+### Not yet runtime-validated
+
+The items above are **implemented but not yet promoted to runtime-proven authority**. They still require an FS25 test pass. In particular, save-hook interoperability, XML API behavior, repeated save/load, Red Tape coexistence, and multiplayer server/client behavior must be tested in-game before they are marked validated.
+
+## 10. Immediate next implementation targets
+
+1. Run the Phase 0 persistence QA pass against a real FS25 save.
+2. Add farm-level financial-state service and version it into the native save schema.
+3. Add liability registry/data model so CILOC and other facilities have real persistent balances rather than test IDs.
+4. Add transaction-to-FS money movement boundary and MoneyType/FinanceStats mapping without corrupting the purpose-aware ledger.
+5. Add initial multiplayer state synchronization from server to joining clients.
+6. Prove Red Tape accounting integration without duplicate recording.
+7. Build a minimal read-only AgForward finance screen for cash, liabilities, available credit, and recent ledger activity.
+
+## 11. Non-goals for Phase 0
 
 Do not implement yet:
 
@@ -190,6 +240,6 @@ Do not implement yet:
 - cosmetic branding polish beyond what is needed for functional UI;
 - copied or ported third-party code.
 
-## 10. Change-control rule
+## 12. Change-control rule
 
 Any change to a locked item above must be explicitly promoted into a new revision of this authority document. Experimental code may exist on branches, but it does not become project-wide authority until this file is deliberately updated.
