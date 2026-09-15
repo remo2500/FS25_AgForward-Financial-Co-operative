@@ -60,7 +60,7 @@ function AGFSaveService:inspectCandidate(path, label)
     local rootKey = AGFSaveService.ROOT_KEY
     info.schemaVersion = getXMLInt(xmlFile, rootKey .. "#schemaVersion") or 0
     info.generation = getXMLInt(xmlFile, rootKey .. "#saveGeneration") or 0
-    info.valid = info.schemaVersion > 0
+    info.valid = info.schemaVersion > 0 and info.generation >= 0
     delete(xmlFile)
     return info
 end
@@ -164,9 +164,17 @@ function AGFSaveService:load()
         return false
     end
 
+    -- Prefer the highest save generation. When generations tie, a higher schema
+    -- outranks a lower one so an older build can never select/overwrite a same-
+    -- generation copy produced by a newer build. Primary is only the final tie-break.
     table.sort(candidates, function(left, right)
-        if left.generation == right.generation then return left.label == "primary" end
-        return left.generation > right.generation
+        if left.generation ~= right.generation then
+            return left.generation > right.generation
+        end
+        if left.schemaVersion ~= right.schemaVersion then
+            return left.schemaVersion > right.schemaVersion
+        end
+        return left.label == "primary"
     end)
 
     local newest = candidates[1]
@@ -189,12 +197,14 @@ function AGFSaveService:load()
         if candidate.schemaVersion <= AGFSaveService.SCHEMA_VERSION then
             local loaded, loadError = self:tryLoadCandidate(candidate)
             if loaded then
-                local recovered = candidate.label == "backup" or (primary.valid and candidate.generation > primary.generation)
+                local recovered = candidate.label == "backup"
+                    or (primary.valid and candidate.generation > primary.generation)
+                    or not primary.valid
                 self.lastLoadStatus = recovered and "RECOVERED_FROM_BACKUP" or "LOADED"
                 if runtimeState ~= nil then
                     runtimeState:setState(recovered and AGFRuntimeState.RECOVERED or AGFRuntimeState.NORMAL, self.lastLoadStatus)
                     if recovered then
-                        runtimeState:addIssue("RECOVERED_FROM_BACKUP", "AgForward loaded the validated backup copy", "warning")
+                        runtimeState:addIssue("RECOVERED_FROM_BACKUP", "AgForward loaded the validated recovery copy", "warning")
                     end
                 end
                 print(string.format(
@@ -286,24 +296,30 @@ function AGFSaveService:save()
     -- the primary is subsequently written, the next load can select the newer
     -- validated backup generation.
     local backupWritten, backupError = self:writeStateToFile(backupPath, generation)
-    local backupValid, backupValidationError = backupWritten and self:validateWrittenCopy(backupPath, generation) or false, nil
-    if backupWritten and not backupValid then
-        _, backupValidationError = self:validateWrittenCopy(backupPath, generation)
-    end
-    if not backupWritten or not backupValid then
+    if not backupWritten then
         self.lastSaveStatus = "BACKUP_WRITE_FAILED"
-        runtimeState:enterSafeMode("BACKUP_WRITE_FAILED", tostring(backupError or backupValidationError))
+        runtimeState:enterSafeMode("BACKUP_WRITE_FAILED", tostring(backupError))
+        return false
+    end
+
+    local backupValid, backupValidationError = self:validateWrittenCopy(backupPath, generation)
+    if not backupValid then
+        self.lastSaveStatus = "BACKUP_VALIDATION_FAILED"
+        runtimeState:enterSafeMode("BACKUP_VALIDATION_FAILED", tostring(backupValidationError))
         return false
     end
 
     local primaryWritten, primaryError = self:writeStateToFile(primaryPath, generation)
-    local primaryValid, primaryValidationError = primaryWritten and self:validateWrittenCopy(primaryPath, generation) or false, nil
-    if primaryWritten and not primaryValid then
-        _, primaryValidationError = self:validateWrittenCopy(primaryPath, generation)
-    end
-    if not primaryWritten or not primaryValid then
+    if not primaryWritten then
         self.lastSaveStatus = "PRIMARY_WRITE_FAILED_BACKUP_VALID"
-        runtimeState:enterSafeMode("PRIMARY_WRITE_FAILED", tostring(primaryError or primaryValidationError))
+        runtimeState:enterSafeMode("PRIMARY_WRITE_FAILED", tostring(primaryError))
+        return false
+    end
+
+    local primaryValid, primaryValidationError = self:validateWrittenCopy(primaryPath, generation)
+    if not primaryValid then
+        self.lastSaveStatus = "PRIMARY_VALIDATION_FAILED_BACKUP_VALID"
+        runtimeState:enterSafeMode("PRIMARY_VALIDATION_FAILED", tostring(primaryValidationError))
         return false
     end
 
