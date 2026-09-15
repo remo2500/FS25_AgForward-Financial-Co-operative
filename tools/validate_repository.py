@@ -122,14 +122,28 @@ def validate_no_packaged_artifacts(errors: list[str]) -> None:
 
 
 def validate_lua_text(errors: list[str]) -> None:
-    """Cheap hygiene checks only; not a Lua parser."""
+    """Cheap hygiene checks only; not a Lua parser.
+
+    Compatibility detection is allowed to contain donor mod *names*. What we
+    reject here are obvious source/path imports that would indicate donor code
+    or assets were accidentally wired into AgForward production Lua.
+    """
+    suspicious_path_fragments = (
+        "FS25_BankCredit/",
+        "FS25_FinanceYourFleet/",
+        "FS25_AgriCreditSolutions/",
+        "FS25_FieldLeasing/",
+        "FS25_EconomicHistory/",
+        "FS25_TradeInMenu/",
+    )
+
     for path in ROOT.rglob("*.lua"):
         text = path.read_text(encoding="utf-8")
         if "\t" in text:
             # Tabs are legal; warn through stdout rather than failing.
             print(f"warning: tab characters in {path.relative_to(ROOT)}")
-        if "FS25_BankCredit/" in text or "FinanceYourFleet" in text or "AgriCreditSolutions" in text:
-            fail(f"Possible donor source/path reference in production Lua: {path.relative_to(ROOT)}", errors)
+        if any(fragment in text for fragment in suspicious_path_fragments):
+            fail(f"Possible donor source/path import in production Lua: {path.relative_to(ROOT)}", errors)
 
 
 def main() -> int:
