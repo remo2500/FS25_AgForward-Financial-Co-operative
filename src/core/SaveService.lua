@@ -6,7 +6,7 @@ AGFSaveService_mt = Class(AGFSaveService)
 
 AGFSaveService.FILE_NAME = "agForwardFinance.xml"
 AGFSaveService.ROOT_KEY = "agForwardFinance"
-AGFSaveService.SCHEMA_VERSION = 1
+AGFSaveService.SCHEMA_VERSION = 2
 AGFSaveService.saveHookInstalled = false
 
 function AGFSaveService.new(services)
@@ -14,6 +14,7 @@ function AGFSaveService.new(services)
     self.services = services
     self.lastLoadStatus = "NOT_LOADED"
     self.lastSaveStatus = "NOT_SAVED"
+    self.loadedSchemaVersion = 0
     return self
 end
 
@@ -57,6 +58,7 @@ function AGFSaveService:load()
 
     if not fileExists(filePath) then
         self.lastLoadStatus = "NEW_SAVE"
+        self.loadedSchemaVersion = AGFSaveService.SCHEMA_VERSION
         print("AgForward: no existing agForwardFinance.xml; starting with empty financial state")
         return true
     end
@@ -70,6 +72,8 @@ function AGFSaveService:load()
 
     local rootKey = AGFSaveService.ROOT_KEY
     local schemaVersion = getXMLInt(xmlFile, rootKey .. "#schemaVersion") or 0
+    self.loadedSchemaVersion = schemaVersion
+
     if schemaVersion > AGFSaveService.SCHEMA_VERSION then
         print(string.format(
             "Warning: AgForward save schema %d is newer than supported schema %d; attempting best-effort load",
@@ -81,6 +85,13 @@ function AGFSaveService:load()
     local idService = self.services:get("idService")
     if idService ~= nil then
         idService:loadFromXMLFile(xmlFile, rootKey .. ".idCounters")
+    end
+
+    -- Schema v2 introduced the native liability registry. Older saves simply
+    -- have no liability nodes and therefore migrate to an empty registry.
+    local liabilities = self.services:get("liabilities")
+    if liabilities ~= nil then
+        liabilities:loadFromXMLFile(xmlFile, rootKey .. ".liabilities")
     end
 
     local ledger = self.services:get("ledger")
@@ -133,6 +144,11 @@ function AGFSaveService:save()
         idService:saveToXMLFile(xmlFile, rootKey .. ".idCounters")
     end
 
+    local liabilities = self.services:get("liabilities")
+    if liabilities ~= nil then
+        liabilities:saveToXMLFile(xmlFile, rootKey .. ".liabilities")
+    end
+
     local ledger = self.services:get("ledger")
     if ledger ~= nil then
         ledger:saveToXMLFile(xmlFile, rootKey .. ".ledger")
@@ -148,7 +164,8 @@ end
 function AGFSaveService:getStatus()
     return {
         load = self.lastLoadStatus,
-        save = self.lastSaveStatus
+        save = self.lastSaveStatus,
+        schemaVersion = self.loadedSchemaVersion
     }
 end
 
