@@ -46,5 +46,10 @@ function AGFRateConvention.fromDisplayPercent(percent)
     if value == nil or not isFinite(value) then
         return nil, "INVALID_PERCENT"
     end
-    return AGFRateConvention.validateAnnualRate(value / 100)
+
+    local valid, rateOrError = AGFRateConvention.validateAnnualRate(value / 100)
+    if not valid then
+        return nil, rateOrError
+    end
+    return rateOrError, nil
 end
