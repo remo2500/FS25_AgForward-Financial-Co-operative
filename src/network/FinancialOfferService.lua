@@ -3,8 +3,8 @@
 -- workflows. Clients should accept an offer ID; they must not supply authoritative
 -- APR/payment/credit terms back to the server.
 --
--- Offers are deliberately not savegame authority. A reload/reconnect can request
--- a fresh quote against the current financial state and policy.
+-- Offers are deliberately not savegame financial authority. A reload/reconnect
+-- can request a fresh quote against the current financial state and policy.
 
 AGFFinancialOfferStatus = {
     ACTIVE = "active",
@@ -54,7 +54,8 @@ end
 function AGFFinancialOfferService.new(idService, maxActiveOffers)
     local self = setmetatable({}, AGFFinancialOfferService_mt)
     self.idService = idService
-    self.maxActiveOffers = math.max(16, math.floor(tonumber(maxActiveOffers) or 128))
+    local normalizedLimit = normalizePositiveInteger(maxActiveOffers)
+    self.maxActiveOffers = math.max(16, normalizedLimit or 128)
     self.offers = {}
     self.order = {}
     return self
@@ -155,7 +156,16 @@ function AGFFinancialOfferService:validateForAcceptance(id, connectionKey, farmI
     if context.expectedProductType ~= nil and context.expectedProductType ~= offer.productType then
         return false, "OFFER_PRODUCT_MISMATCH"
     end
-    if context.contextFingerprint ~= nil and tostring(context.contextFingerprint) ~= tostring(offer.contextFingerprint) then
+
+    -- If the server quote was bound to a specific dealer item/configuration,
+    -- placeable project, or farmland selection, acceptance must present the
+    -- same server-derived context. Omitting it is not an escape hatch.
+    if offer.contextFingerprint ~= nil then
+        if context.contextFingerprint == nil
+            or tostring(context.contextFingerprint) ~= tostring(offer.contextFingerprint) then
+            return false, "OFFER_CONTEXT_MISMATCH"
+        end
+    elseif context.contextFingerprint ~= nil then
         return false, "OFFER_CONTEXT_MISMATCH"
     end
 
