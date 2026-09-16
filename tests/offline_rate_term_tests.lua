@@ -1,10 +1,15 @@
 -- Offline validation for distinguishing rate term/renewal from loan amortization.
 
 dofile("src/core/Currency.lua")
+dofile("src/ledger/FinancialTaxonomy.lua")
 dofile("src/finance/RateConvention.lua")
+dofile("src/finance/RatePricingService.lua")
 dofile("src/finance/AmortizationService.lua")
 dofile("src/finance/StructuredAmortizationService.lua")
 dofile("src/finance/RateTermRenewalService.lua")
+dofile("src/finance/LoanQuoteService.lua")
+dofile("src/finance/PaymentFrequencyService.lua")
+dofile("src/finance/LoanContractScheduleService.lua")
 
 local function assertEqual(actual, expected, message)
     if actual ~= expected then
@@ -91,6 +96,46 @@ assertEqual(balloonMaturity.termBalloonPayments, 50000, "maturity includes contr
 assertEqual(balloonMaturity.renewalPrincipal, 0, "balloon maturity leaves no renewal principal")
 assertFalse(balloonMaturity.requiresRenewal, "balloon maturity no renewal")
 
+-- Unified quotes can carry a shorter rate term without treating renewal balance as a balloon.
+local quoteOk, quote = AGFLoanQuoteService.quote({
+    principal = 300000,
+    periods = 20,
+    paymentsPerYear = 1,
+    rateTermPeriods = 5,
+    rateComponents = {baseRate = 0.07}
+})
+assertTrue(quoteOk, "land quote with rate term succeeds")
+assertEqual(quote.periods, 20, "land quote amortization periods")
+assertEqual(quote.rateTermPeriods, 5, "land quote rate term")
+assertTrue(quote.rateTermSummary ~= nil, "land quote rate-term summary")
+assertTrue(quote.rateTermSummary.requiresRenewal, "land quote renewal required")
+assertTrue(quote.rateTermSummary.renewalPrincipal > 0, "land quote renewal balance")
+assertEqual(quote.balloonAmount, 0, "rate renewal is not quoted as balloon")
+
+local datedOk, dated = AGFLoanContractScheduleService.build(quote, 2026, 10)
+assertTrue(datedOk, "dated land contract succeeds")
+assertEqual(dated.rateRenewalDueYear, 2031, "rate renewal due year")
+assertEqual(dated.rateRenewalDuePeriod, 10, "rate renewal stays on annual farm payment anchor")
+assertEqual(dated.schedule[5].rateRenewalDue, true, "rate renewal row marked")
+assertEqual(dated.schedule[5].renewalPrincipal, quote.rateTermSummary.renewalPrincipal, "dated renewal principal")
+assertFalse(dated.schedule[4].rateRenewalDue, "row before renewal not marked")
+assertFalse(dated.schedule[6].rateRenewalDue, "row after renewal not marked")
+assertEqual(dated.maturityYear, 2046, "amortization maturity remains later than rate renewal")
+assertEqual(dated.maturityPeriod, 10, "maturity stays on annual anchor")
+
+-- An interest-only quote can also have a rate term; renewal calculations use the structured schedule.
+local ioQuoteOk, ioQuote = AGFLoanQuoteService.quote({
+    principal = 100000,
+    periods = 24,
+    interestOnlyPeriods = 6,
+    paymentsPerYear = 12,
+    rateTermPeriods = 6,
+    rateComponents = {baseRate = 0.12}
+})
+assertTrue(ioQuoteOk, "structured quote with rate term succeeds")
+assertEqual(ioQuote.rateTermSummary.renewalPrincipal, 100000, "IO quote renews full principal at IO term")
+assertEqual(ioQuote.rateTermSummary.termPrincipalPaid, 0, "IO quote rate term principal paid")
+
 -- Invalid rate terms are explicit errors.
 local tooLongOk, tooLongError = AGFRateTermRenewalService.summarize(land, 241)
 assertFalse(tooLongOk, "rate term beyond amortization rejected")
@@ -103,5 +148,14 @@ assertEqual(fractionalError, "INVALID_RATE_TERM", "fractional rate term error")
 local invalidScheduleOk, invalidScheduleError = AGFRateTermRenewalService.summarize({}, 12)
 assertFalse(invalidScheduleOk, "missing amortization schedule rejected")
 assertEqual(invalidScheduleError, "INVALID_AMORTIZATION", "missing amortization error")
+
+local quoteTooLongOk, quoteTooLongError = AGFLoanQuoteService.quote({
+    principal = 100000,
+    periods = 12,
+    rateTermPeriods = 13,
+    rateComponents = {baseRate = 0.05}
+})
+assertFalse(quoteTooLongOk, "quote rate term beyond amortization rejected")
+assertEqual(quoteTooLongError, "RATE_TERM_EXCEEDS_AMORTIZATION", "quote rate-term length error")
 
 print("offline_rate_term_tests: PASS")
