@@ -47,7 +47,7 @@ function AGFLoanQuoteService.quote(parameters)
 
     -- `periods` is the total contractual payment-period count. If an initial
     -- interest-only phase is requested, those periods are part of (not added
-    -- on top of) the stated term so maturity does not silently extend.
+    -- on top of) the stated amortization so maturity does not silently extend.
     local periods = normalizePositiveInteger(parameters.periods)
     if periods == nil then return false, "INVALID_TERM" end
 
@@ -55,6 +55,15 @@ function AGFLoanQuoteService.quote(parameters)
     if interestOnlyPeriods == nil then return false, "INVALID_INTEREST_ONLY_PERIODS" end
     if interestOnlyPeriods >= periods then return false, "INTEREST_ONLY_PHASE_REQUIRES_AMORTIZING_PERIOD" end
     local amortizingPeriods = periods - interestOnlyPeriods
+
+    -- A rate term can end earlier than the amortization. That does not create a
+    -- maturity balloon: the remaining principal becomes the renewal balance.
+    local rateTermPeriods = nil
+    if parameters.rateTermPeriods ~= nil then
+        rateTermPeriods = normalizePositiveInteger(parameters.rateTermPeriods)
+        if rateTermPeriods == nil then return false, "INVALID_RATE_TERM" end
+        if rateTermPeriods > periods then return false, "RATE_TERM_EXCEEDS_AMORTIZATION" end
+    end
 
     -- Defaults preserve the original monthly quote behavior. Agricultural
     -- products may instead quote quarterly, semi-annual, or annual payments by
@@ -107,6 +116,16 @@ function AGFLoanQuoteService.quote(parameters)
     end
     if amortization == nil then return false, amortizationError end
 
+    local rateTermSummary = nil
+    if rateTermPeriods ~= nil then
+        if AGFRateTermRenewalService == nil then
+            return false, "RATE_TERM_RENEWAL_SERVICE_UNAVAILABLE"
+        end
+        local rateTermOk, rateTermOrError = AGFRateTermRenewalService.summarize(amortization, rateTermPeriods)
+        if not rateTermOk then return false, rateTermOrError end
+        rateTermSummary = rateTermOrError
+    end
+
     local financedShare = purchasePrice > 0 and principal / purchasePrice or nil
     local downPaymentShare = purchasePrice > 0 and downPayment / purchasePrice or nil
 
@@ -117,6 +136,8 @@ function AGFLoanQuoteService.quote(parameters)
         periods = periods,
         interestOnlyPeriods = interestOnlyPeriods,
         amortizingPeriods = amortizingPeriods,
+        rateTermPeriods = rateTermPeriods,
+        rateTermSummary = rateTermSummary,
         paymentsPerYear = paymentsPerYear,
         balloonAmount = balloonAmount,
         pricing = pricing,
