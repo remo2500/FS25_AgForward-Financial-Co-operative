@@ -64,6 +64,9 @@ jobs:
       - name: Run offline finance tests
         run: lua5.1 tests/offline_finance_tests.lua
 
+      - name: Run liability payment posting-plan tests
+        run: lua5.1 tests/offline_payment_plan_tests.lua
+
       - name: Run offline invariant matrix
         run: lua5.1 tests/offline_invariant_tests.lua
 
