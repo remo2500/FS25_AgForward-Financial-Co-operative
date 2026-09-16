@@ -4,6 +4,36 @@
 AGFLeaseRegistry = {}
 AGFLeaseRegistry_mt = Class(AGFLeaseRegistry)
 
+local function isFiniteNumber(value)
+    return value == value and value ~= math.huge and value ~= -math.huge
+end
+
+local function normalizePaymentsPerYear(value)
+    local number = tonumber(value == nil and 12 or value)
+    if number == nil or not isFiniteNumber(number) or number <= 0 or number ~= math.floor(number) then
+        return nil
+    end
+    -- Lease due dates must land on whole FS financial periods.
+    if 12 % number ~= 0 then return nil end
+    return number
+end
+
+local function normalizePositiveInteger(value)
+    local number = tonumber(value)
+    if number == nil or not isFiniteNumber(number) or number <= 0 or number ~= math.floor(number) then
+        return nil
+    end
+    return number
+end
+
+local function normalizeNonNegativeMoney(value)
+    local number = tonumber(value)
+    if number == nil or not isFiniteNumber(number) then return nil end
+    number = AGFCurrency.round(number)
+    if number < 0 then return nil end
+    return number
+end
+
 function AGFLeaseRegistry.new(idService, runtimeState, assetRegistry)
     local self = setmetatable({}, AGFLeaseRegistry_mt)
     self.idService = idService
@@ -22,7 +52,7 @@ function AGFLeaseRegistry:checkMutationAllowed(internal)
     return self.runtimeState:canMutate()
 end
 
-function AGFLeaseRegistry:create(assetId, leaseType, lesseeFarmId, periodicRent, termPeriods, displayName)
+function AGFLeaseRegistry:create(assetId, leaseType, lesseeFarmId, periodicRent, termPeriods, displayName, paymentsPerYear)
     local allowed, errorCode = self:checkMutationAllowed(false)
     if not allowed then return nil, errorCode end
     if assetId == nil or leaseType == nil or lesseeFarmId == nil then
@@ -35,14 +65,19 @@ function AGFLeaseRegistry:create(assetId, leaseType, lesseeFarmId, periodicRent,
         return nil, "ACTIVE_ASSET_LEASE_ALREADY_EXISTS"
     end
 
-    local rent = AGFCurrency.round(tonumber(periodicRent) or 0)
-    local term = math.floor(tonumber(termPeriods) or 0)
-    if rent < 0 then return nil, "INVALID_RENT" end
-    if term <= 0 then return nil, "INVALID_LEASE_TERM" end
+    local rent = normalizeNonNegativeMoney(periodicRent)
+    if rent == nil then return nil, "INVALID_RENT" end
+
+    local term = normalizePositiveInteger(termPeriods)
+    if term == nil then return nil, "INVALID_LEASE_TERM" end
+
+    local frequency = normalizePaymentsPerYear(paymentsPerYear)
+    if frequency == nil then return nil, "INVALID_LEASE_PAYMENT_FREQUENCY" end
 
     local lease = AGFLease.new(self.idService:next("LEASE"), assetId, leaseType, lesseeFarmId)
     lease.displayName = displayName
     lease.periodicRent = rent
+    lease.paymentsPerYear = frequency
     lease.termPeriods = term
     lease.remainingPeriods = term
     return lease, nil
@@ -59,8 +94,20 @@ function AGFLeaseRegistry:register(lease, internal)
         return false, "ACTIVE_ASSET_LEASE_ALREADY_EXISTS"
     end
 
+    local rent = normalizeNonNegativeMoney(lease.periodicRent)
+    if rent == nil then return false, "INVALID_RENT" end
+    local term = normalizePositiveInteger(lease.termPeriods)
+    if term == nil then return false, "INVALID_LEASE_TERM" end
+    local remaining = normalizePositiveInteger(lease.remainingPeriods)
+    if remaining == nil or remaining > term then return false, "INVALID_LEASE_REMAINING_TERM" end
+    local frequency = normalizePaymentsPerYear(lease.paymentsPerYear)
+    if frequency == nil then return false, "INVALID_LEASE_PAYMENT_FREQUENCY" end
+
     local stored = lease:clone()
-    stored.periodicRent = AGFCurrency.round(stored.periodicRent or 0)
+    stored.periodicRent = rent
+    stored.paymentsPerYear = frequency
+    stored.termPeriods = term
+    stored.remainingPeriods = remaining
     stored.accruedRent = AGFCurrency.round(stored.accruedRent or 0)
     stored.accruedFees = AGFCurrency.round(stored.accruedFees or 0)
 
@@ -123,6 +170,9 @@ function AGFLeaseRegistry:activate(id, startYear, startPeriod)
     lease.status = AGFLeaseStatus.ACTIVE
     lease.startYear = startYear
     lease.startPeriod = startPeriod
+    -- These legacy fields remain activation-period markers until the live lease
+    -- scheduler is promoted. LeaseScheduleService is the pure due-date authority
+    -- for non-monthly future contract planning.
     lease.nextPaymentYear = startYear
     lease.nextPaymentPeriod = startPeriod
     return true, lease:clone()
