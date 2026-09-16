@@ -37,6 +37,9 @@ jobs:
       - name: Check Lua syntax
         run: find src -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
 
+      - name: Run core state and ledger tests
+        run: lua5.1 tests/offline_core_state_tests.lua
+
       - name: Run offline save service tests
         run: lua5.1 tests/offline_save_service_tests.lua
 
