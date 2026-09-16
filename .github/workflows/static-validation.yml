@@ -82,6 +82,9 @@ jobs:
       - name: Run staged project draw tests
         run: lua5.1 tests/offline_project_draw_tests.lua
 
+      - name: Run hardened network protocol tests
+        run: lua5.1 tests/offline_network_protocol_tests.lua
+
       - name: Run offline invariant matrix
         run: lua5.1 tests/offline_invariant_tests.lua
 
