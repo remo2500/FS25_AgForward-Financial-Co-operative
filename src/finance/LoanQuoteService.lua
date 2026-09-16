@@ -19,6 +19,13 @@ local function normalizePositiveInteger(value)
     return number
 end
 
+local function normalizeNonNegativeInteger(value)
+    local number = tonumber(value or 0)
+    if number == nil or number ~= number or number == math.huge or number == -math.huge then return nil end
+    if number < 0 or number ~= math.floor(number) then return nil end
+    return number
+end
+
 function AGFLoanQuoteService.quote(parameters)
     parameters = parameters or {}
 
@@ -38,8 +45,16 @@ function AGFLoanQuoteService.quote(parameters)
     end
     if principal == nil or principal <= 0 then return false, "INVALID_PRINCIPAL" end
 
+    -- `periods` is the total contractual payment-period count. If an initial
+    -- interest-only phase is requested, those periods are part of (not added
+    -- on top of) the stated term so maturity does not silently extend.
     local periods = normalizePositiveInteger(parameters.periods)
     if periods == nil then return false, "INVALID_TERM" end
+
+    local interestOnlyPeriods = normalizeNonNegativeInteger(parameters.interestOnlyPeriods or 0)
+    if interestOnlyPeriods == nil then return false, "INVALID_INTEREST_ONLY_PERIODS" end
+    if interestOnlyPeriods >= periods then return false, "INTEREST_ONLY_PHASE_REQUIRES_AMORTIZING_PERIOD" end
+    local amortizingPeriods = periods - interestOnlyPeriods
 
     -- Defaults preserve the original monthly quote behavior. Agricultural
     -- products may instead quote quarterly, semi-annual, or annual payments by
@@ -67,13 +82,29 @@ function AGFLoanQuoteService.quote(parameters)
         if balloonAmount == nil then return false, "INVALID_BALLOON" end
     end
 
-    local amortization, amortizationError = AGFAmortizationService.generateSchedule(
-        principal,
-        pricing.annualRate,
-        periods,
-        balloonAmount,
-        paymentsPerYear
-    )
+    local amortization
+    local amortizationError
+    if interestOnlyPeriods > 0 then
+        if AGFStructuredAmortizationService == nil then
+            return false, "STRUCTURED_AMORTIZATION_SERVICE_UNAVAILABLE"
+        end
+        amortization, amortizationError = AGFStructuredAmortizationService.generateInterestOnlyThenAmortizing(
+            principal,
+            pricing.annualRate,
+            interestOnlyPeriods,
+            amortizingPeriods,
+            balloonAmount,
+            paymentsPerYear
+        )
+    else
+        amortization, amortizationError = AGFAmortizationService.generateSchedule(
+            principal,
+            pricing.annualRate,
+            periods,
+            balloonAmount,
+            paymentsPerYear
+        )
+    end
     if amortization == nil then return false, amortizationError end
 
     local financedShare = purchasePrice > 0 and principal / purchasePrice or nil
@@ -84,9 +115,12 @@ function AGFLoanQuoteService.quote(parameters)
         downPayment = downPayment,
         principal = principal,
         periods = periods,
+        interestOnlyPeriods = interestOnlyPeriods,
+        amortizingPeriods = amortizingPeriods,
         paymentsPerYear = paymentsPerYear,
         balloonAmount = balloonAmount,
         pricing = pricing,
+        interestOnlyPayment = amortization.interestOnlyPayment,
         quotedRegularPayment = amortization.quotedRegularPayment,
         totalInterest = amortization.totalInterest,
         totalPayments = amortization.totalPayments,
