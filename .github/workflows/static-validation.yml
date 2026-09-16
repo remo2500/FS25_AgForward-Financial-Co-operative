@@ -76,6 +76,9 @@ jobs:
       - name: Run structured interest-only amortization tests
         run: lua5.1 tests/offline_structured_amortization_tests.lua
 
+      - name: Run rate-term renewal tests
+        run: lua5.1 tests/offline_rate_term_tests.lua
+
       - name: Run prepayment policy tests
         run: lua5.1 tests/offline_prepayment_policy_tests.lua
 
