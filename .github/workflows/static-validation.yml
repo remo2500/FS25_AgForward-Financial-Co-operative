@@ -40,6 +40,9 @@ jobs:
       - name: Run core state and ledger tests
         run: lua5.1 tests/offline_core_state_tests.lua
 
+      - name: Run Phase 0 runtime foundation tests
+        run: lua5.1 tests/offline_runtime_foundation_tests.lua
+
       - name: Run offline save service tests
         run: lua5.1 tests/offline_save_service_tests.lua
 
