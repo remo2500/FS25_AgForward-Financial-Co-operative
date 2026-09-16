@@ -5,9 +5,17 @@ AGFLoanQuoteService = {}
 
 local function normalizeNonNegativeMoney(value)
     local number = tonumber(value)
-    if number == nil then return nil end
+    if number == nil or number ~= number or number == math.huge or number == -math.huge then return nil end
     number = AGFCurrency.round(number)
     if number < 0 then return nil end
+    return number
+end
+
+local function normalizePositiveInteger(value)
+    local number = tonumber(value)
+    if number == nil or number ~= number or number == math.huge or number == -math.huge then return nil end
+    number = math.floor(number)
+    if number <= 0 then return nil end
     return number
 end
 
@@ -30,8 +38,14 @@ function AGFLoanQuoteService.quote(parameters)
     end
     if principal == nil or principal <= 0 then return false, "INVALID_PRINCIPAL" end
 
-    local periods = math.floor(tonumber(parameters.periods) or 0)
-    if periods <= 0 then return false, "INVALID_TERM" end
+    local periods = normalizePositiveInteger(parameters.periods)
+    if periods == nil then return false, "INVALID_TERM" end
+
+    -- Defaults preserve the original monthly quote behavior. Agricultural
+    -- products may instead quote quarterly, semi-annual, or annual payments by
+    -- providing the number of payments per year explicitly.
+    local paymentsPerYear = normalizePositiveInteger(parameters.paymentsPerYear or AGFRateConvention.PERIODS_PER_YEAR)
+    if paymentsPerYear == nil then return false, "INVALID_PAYMENTS_PER_YEAR" end
 
     local pricingOk, pricingOrError = AGFRatePricingService.quote(parameters.rateComponents or {})
     if not pricingOk then return false, pricingOrError end
@@ -44,7 +58,7 @@ function AGFLoanQuoteService.quote(parameters)
 
     if parameters.balloonPercent ~= nil then
         local percent = tonumber(parameters.balloonPercent)
-        if percent == nil or percent < 0 or percent > 1 then
+        if percent == nil or percent ~= percent or percent == math.huge or percent == -math.huge or percent < 0 or percent > 1 then
             return false, "INVALID_BALLOON_PERCENT"
         end
         balloonAmount = AGFCurrency.round(principal * percent)
@@ -57,7 +71,8 @@ function AGFLoanQuoteService.quote(parameters)
         principal,
         pricing.annualRate,
         periods,
-        balloonAmount
+        balloonAmount,
+        paymentsPerYear
     )
     if amortization == nil then return false, amortizationError end
 
@@ -69,6 +84,7 @@ function AGFLoanQuoteService.quote(parameters)
         downPayment = downPayment,
         principal = principal,
         periods = periods,
+        paymentsPerYear = paymentsPerYear,
         balloonAmount = balloonAmount,
         pricing = pricing,
         quotedRegularPayment = amortization.quotedRegularPayment,
