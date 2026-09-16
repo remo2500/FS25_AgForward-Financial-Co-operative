@@ -1,8 +1,8 @@
 -- AgForward Financial Cooperative
 -- Pure merger of an amortization schedule with FS financial-period due dates.
--- It deliberately rejects irregular first periods because standard annuity math
--- assumes equal payment intervals; deferral/interest-only phases require their
--- own explicit contract-phase model rather than a date-only shortcut.
+-- Standard annuity rows assume equal payment intervals; full payment deferral or
+-- other irregular-period math must use an explicit structured schedule rather
+-- than changing dates after the financial calculations are complete.
 
 AGFLoanContractScheduleService = {}
 
@@ -29,6 +29,7 @@ function AGFLoanContractScheduleService.build(quote, startYear, startPeriod)
         local due = dueSchedule.schedule[index]
         table.insert(rows, {
             paymentNumber = index,
+            phase = amortizationRow.phase or "amortizing",
             dueYear = due.dueYear,
             duePeriod = due.duePeriod,
             periodsFromStart = due.periodsFromStart,
@@ -52,12 +53,14 @@ function AGFLoanContractScheduleService.build(quote, startYear, startPeriod)
         paymentsPerYear = paymentsPerYear,
         intervalPeriods = dueSchedule.intervalPeriods,
         paymentCount = paymentCount,
+        interestOnlyPeriods = quote.interestOnlyPeriods or amortization.interestOnlyPeriods or 0,
         firstDueYear = first.dueYear,
         firstDuePeriod = first.duePeriod,
         maturityYear = last.dueYear,
         maturityPeriod = last.duePeriod,
         principal = amortization.principal,
         annualRate = amortization.annualRate,
+        interestOnlyPayment = amortization.interestOnlyPayment,
         quotedRegularPayment = amortization.quotedRegularPayment,
         balloonAmount = amortization.balloonAmount,
         totalInterest = amortization.totalInterest,
