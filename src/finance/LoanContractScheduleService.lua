@@ -24,9 +24,17 @@ function AGFLoanContractScheduleService.build(quote, startYear, startPeriod)
     )
     if dueSchedule == nil then return false, dueError end
 
+    local renewalPaymentNumber = nil
+    local renewalPrincipal = nil
+    if quote.rateTermSummary ~= nil and quote.rateTermSummary.requiresRenewal then
+        renewalPaymentNumber = quote.rateTermSummary.renewalAfterPaymentNumber
+        renewalPrincipal = quote.rateTermSummary.renewalPrincipal
+    end
+
     local rows = {}
     for index, amortizationRow in ipairs(amortization.schedule) do
         local due = dueSchedule.schedule[index]
+        local isRenewal = renewalPaymentNumber ~= nil and index == renewalPaymentNumber
         table.insert(rows, {
             paymentNumber = index,
             phase = amortizationRow.phase or "amortizing",
@@ -41,12 +49,15 @@ function AGFLoanContractScheduleService.build(quote, startYear, startPeriod)
             regularPayment = amortizationRow.regularPayment,
             balloonPayment = amortizationRow.balloonPayment,
             totalPayment = amortizationRow.totalPayment,
-            endingBalance = amortizationRow.endingBalance
+            endingBalance = amortizationRow.endingBalance,
+            rateRenewalDue = isRenewal,
+            renewalPrincipal = isRenewal and renewalPrincipal or nil
         })
     end
 
     local first = rows[1]
     local last = rows[#rows]
+    local renewalRow = renewalPaymentNumber ~= nil and rows[renewalPaymentNumber] or nil
     return true, {
         startYear = startYear,
         startPeriod = startPeriod,
@@ -54,8 +65,13 @@ function AGFLoanContractScheduleService.build(quote, startYear, startPeriod)
         intervalPeriods = dueSchedule.intervalPeriods,
         paymentCount = paymentCount,
         interestOnlyPeriods = quote.interestOnlyPeriods or amortization.interestOnlyPeriods or 0,
+        rateTermPeriods = quote.rateTermPeriods,
+        rateTermSummary = quote.rateTermSummary,
         firstDueYear = first.dueYear,
         firstDuePeriod = first.duePeriod,
+        rateRenewalDueYear = renewalRow ~= nil and renewalRow.dueYear or nil,
+        rateRenewalDuePeriod = renewalRow ~= nil and renewalRow.duePeriod or nil,
+        renewalPrincipal = renewalRow ~= nil and renewalRow.renewalPrincipal or nil,
         maturityYear = last.dueYear,
         maturityPeriod = last.duePeriod,
         principal = amortization.principal,
