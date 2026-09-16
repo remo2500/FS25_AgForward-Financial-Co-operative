@@ -5,7 +5,7 @@ AGFAmortizationService = {}
 
 local function normalizeNonNegativeMoney(value)
     local number = tonumber(value)
-    if number == nil then
+    if number == nil or number ~= number or number == math.huge or number == -math.huge then
         return nil
     end
     number = AGFCurrency.round(number)
@@ -17,7 +17,7 @@ end
 
 local function normalizePeriods(periods)
     local value = tonumber(periods)
-    if value == nil then
+    if value == nil or value ~= value or value == math.huge or value == -math.huge then
         return nil
     end
     value = math.floor(value)
@@ -27,7 +27,17 @@ local function normalizePeriods(periods)
     return value
 end
 
-function AGFAmortizationService.validateTerms(principal, annualRate, periods, balloonAmount)
+local function normalizePeriodsPerYear(periodsPerYear)
+    local value = tonumber(periodsPerYear or AGFRateConvention.PERIODS_PER_YEAR)
+    if value == nil or value ~= value or value == math.huge or value == -math.huge then
+        return nil
+    end
+    value = math.floor(value)
+    if value <= 0 then return nil end
+    return value
+end
+
+function AGFAmortizationService.validateTerms(principal, annualRate, periods, balloonAmount, periodsPerYear)
     local normalizedPrincipal = normalizeNonNegativeMoney(principal)
     if normalizedPrincipal == nil or normalizedPrincipal <= 0 then
         return false, "INVALID_PRINCIPAL"
@@ -36,6 +46,11 @@ function AGFAmortizationService.validateTerms(principal, annualRate, periods, ba
     local normalizedPeriods = normalizePeriods(periods)
     if normalizedPeriods == nil then
         return false, "INVALID_TERM"
+    end
+
+    local normalizedPeriodsPerYear = normalizePeriodsPerYear(periodsPerYear)
+    if normalizedPeriodsPerYear == nil then
+        return false, "INVALID_PERIODS_PER_YEAR"
     end
 
     local rateValid, normalizedRateOrError = AGFRateConvention.validateAnnualRate(annualRate)
@@ -55,18 +70,25 @@ function AGFAmortizationService.validateTerms(principal, annualRate, periods, ba
         principal = normalizedPrincipal,
         annualRate = normalizedRateOrError,
         periods = normalizedPeriods,
+        periodsPerYear = normalizedPeriodsPerYear,
         balloonAmount = normalizedBalloon
     }
 end
 
-function AGFAmortizationService.calculateRegularPayment(principal, annualRate, periods, balloonAmount)
-    local valid, termsOrError = AGFAmortizationService.validateTerms(principal, annualRate, periods, balloonAmount)
+function AGFAmortizationService.calculateRegularPayment(principal, annualRate, periods, balloonAmount, periodsPerYear)
+    local valid, termsOrError = AGFAmortizationService.validateTerms(
+        principal,
+        annualRate,
+        periods,
+        balloonAmount,
+        periodsPerYear
+    )
     if not valid then
         return nil, termsOrError
     end
 
     local terms = termsOrError
-    local periodicRate, rateError = AGFRateConvention.toPeriodicRate(terms.annualRate)
+    local periodicRate, rateError = AGFRateConvention.toPeriodicRate(terms.annualRate, terms.periodsPerYear)
     if periodicRate == nil then
         return nil, rateError
     end
@@ -92,8 +114,14 @@ function AGFAmortizationService.calculateRegularPayment(principal, annualRate, p
     return payment, nil
 end
 
-function AGFAmortizationService.generateSchedule(principal, annualRate, periods, balloonAmount)
-    local valid, termsOrError = AGFAmortizationService.validateTerms(principal, annualRate, periods, balloonAmount)
+function AGFAmortizationService.generateSchedule(principal, annualRate, periods, balloonAmount, periodsPerYear)
+    local valid, termsOrError = AGFAmortizationService.validateTerms(
+        principal,
+        annualRate,
+        periods,
+        balloonAmount,
+        periodsPerYear
+    )
     if not valid then
         return nil, termsOrError
     end
@@ -103,13 +131,14 @@ function AGFAmortizationService.generateSchedule(principal, annualRate, periods,
         terms.principal,
         terms.annualRate,
         terms.periods,
-        terms.balloonAmount
+        terms.balloonAmount,
+        terms.periodsPerYear
     )
     if regularPayment == nil then
         return nil, paymentError
     end
 
-    local periodicRate, rateError = AGFRateConvention.toPeriodicRate(terms.annualRate)
+    local periodicRate, rateError = AGFRateConvention.toPeriodicRate(terms.annualRate, terms.periodsPerYear)
     if periodicRate == nil then
         return nil, rateError
     end
@@ -181,6 +210,7 @@ function AGFAmortizationService.generateSchedule(principal, annualRate, periods,
         annualRate = terms.annualRate,
         periodicRate = periodicRate,
         periods = terms.periods,
+        periodsPerYear = terms.periodsPerYear,
         balloonAmount = terms.balloonAmount,
         quotedRegularPayment = regularPayment,
         schedule = rows,
