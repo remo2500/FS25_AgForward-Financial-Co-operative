@@ -70,6 +70,9 @@ jobs:
       - name: Run agricultural payment frequency tests
         run: lua5.1 tests/offline_payment_frequency_tests.lua
 
+      - name: Run dated loan contract schedule tests
+        run: lua5.1 tests/offline_contract_schedule_tests.lua
+
       - name: Run offline invariant matrix
         run: lua5.1 tests/offline_invariant_tests.lua
 
