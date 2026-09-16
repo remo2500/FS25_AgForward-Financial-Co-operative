@@ -178,7 +178,7 @@ assertTrue(hasCode(unbalancedReport.errors, "GROUP_NOT_BALANCED"), "group balanc
 
 -- Missing liability references are fatal for schema v2+ but remain a legacy warning for v1.
 local _, orphanLedger, orphanLiabilities, orphanIntegrity = buildCore()
-local orphan = AGFTransaction.new("AGF-TX-000050", 1, AGFTransactionType.LOAN_PRINCIPAL_PAYMENT, -100)
+local orphan = AGFTransaction.new("AGF-TX-000050", 1, AGFTransactionType.PRINCIPAL_PAYMENT, -100)
 orphan:setLiabilityId("AGF-LIAB-999999")
 assertTrue(orphanLedger:post(orphan, true), "orphan test transaction posted")
 local orphanValid, orphanReport = orphanIntegrity:run(3)
