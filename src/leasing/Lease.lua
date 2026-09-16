@@ -33,6 +33,7 @@ function AGFLease.new(id, assetId, leaseType, lesseeFarmId)
     self.lessorType = "external"
     self.lessorId = nil
     self.periodicRent = 0
+    self.paymentsPerYear = 12
     self.termPeriods = 0
     self.remainingPeriods = 0
     self.startYear = nil
@@ -61,7 +62,9 @@ end
 
 function AGFLease:getAnnualizedFixedCharge()
     if not self:isOpen() then return 0 end
-    return AGFCurrency.round((self.periodicRent or 0) * 12)
+    local frequency = tonumber(self.paymentsPerYear) or 12
+    if frequency <= 0 then frequency = 12 end
+    return AGFCurrency.round((self.periodicRent or 0) * frequency)
 end
 
 function AGFLease:setMetadata(key, value)
@@ -79,6 +82,7 @@ function AGFLease:clone()
     copy.lessorType = self.lessorType
     copy.lessorId = self.lessorId
     copy.periodicRent = self.periodicRent
+    copy.paymentsPerYear = self.paymentsPerYear
     copy.termPeriods = self.termPeriods
     copy.remainingPeriods = self.remainingPeriods
     copy.startYear = self.startYear
