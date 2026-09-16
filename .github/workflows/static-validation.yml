@@ -46,6 +46,9 @@ jobs:
       - name: Run offline save service tests
         run: lua5.1 tests/offline_save_service_tests.lua
 
+      - name: Run native liability registry tests
+        run: lua5.1 tests/offline_liability_tests.lua
+
       - name: Run coordinated operation tests
         run: lua5.1 tests/offline_operation_tests.lua
 
