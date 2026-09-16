@@ -40,6 +40,9 @@ jobs:
       - name: Run offline save service tests
         run: lua5.1 tests/offline_save_service_tests.lua
 
+      - name: Run coordinated operation tests
+        run: lua5.1 tests/offline_operation_tests.lua
+
       - name: Run offline finance tests
         run: lua5.1 tests/offline_finance_tests.lua
 
