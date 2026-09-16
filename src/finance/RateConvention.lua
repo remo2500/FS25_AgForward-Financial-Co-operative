@@ -25,12 +25,12 @@ function AGFRateConvention.toPeriodicRate(annualRate, periodsPerYear)
         return nil, valueOrError
     end
 
-    local periods = math.floor(tonumber(periodsPerYear) or AGFRateConvention.PERIODS_PER_YEAR)
-    if periods <= 0 then
+    local rawPeriods = tonumber(periodsPerYear == nil and AGFRateConvention.PERIODS_PER_YEAR or periodsPerYear)
+    if rawPeriods == nil or not isFinite(rawPeriods) or rawPeriods <= 0 or rawPeriods ~= math.floor(rawPeriods) then
         return nil, "INVALID_PERIODS_PER_YEAR"
     end
 
-    return valueOrError / periods, nil
+    return valueOrError / rawPeriods, nil
 end
 
 function AGFRateConvention.toDisplayPercent(annualRate)
