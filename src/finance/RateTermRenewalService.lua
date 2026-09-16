@@ -21,7 +21,7 @@ function AGFRateTermRenewalService.summarize(amortization, rateTermPeriods)
     if term == nil then return false, "INVALID_RATE_TERM" end
 
     local totalPeriods = #amortization.schedule
-    if term > totalPeriods then return false, "RATE_TERM_EXCEEDS_AMORTIZATION"
+    if term > totalPeriods then return false, "RATE_TERM_EXCEEDS_AMORTIZATION" end
 
     local termInterest = 0
     local termPrincipal = 0
