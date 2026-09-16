@@ -85,6 +85,9 @@ jobs:
       - name: Run hardened network protocol tests
         run: lua5.1 tests/offline_network_protocol_tests.lua
 
+      - name: Run server financial offer tests
+        run: lua5.1 tests/offline_financial_offer_tests.lua
+
       - name: Run offline invariant matrix
         run: lua5.1 tests/offline_invariant_tests.lua
 
