@@ -79,6 +79,9 @@ jobs:
       - name: Run prepayment policy tests
         run: lua5.1 tests/offline_prepayment_policy_tests.lua
 
+      - name: Run staged project draw tests
+        run: lua5.1 tests/offline_project_draw_tests.lua
+
       - name: Run offline invariant matrix
         run: lua5.1 tests/offline_invariant_tests.lua
 
