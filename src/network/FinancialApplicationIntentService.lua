@@ -1,19 +1,23 @@
 -- AgForward Financial Cooperative
 -- Pure sanitization/normalization for future client finance applications.
 -- Clients may express intent/preferences; they never supply authoritative farm,
--- pricing, approval, balance, collateral-value, or quote fields.
+-- pricing, approval, balance, collateral-value, asset-context, or quote fields.
 
 AGFFinancialApplicationIntentService = {}
 
 local AUTHORITATIVE_FIELDS = {
     "farmId",
+    "connectionKey",
     "annualRate",
     "contractRate",
     "apr",
     "pricing",
+    "pricingVersion",
     "quote",
     "decisionStatus",
     "approvalStatus",
+    "manualApproval",
+    "policyVersion",
     "stateRevision",
     "liabilityId",
     "principalBalance",
@@ -21,7 +25,14 @@ local AUTHORITATIVE_FIELDS = {
     "scheduledPayment",
     "totalInterest",
     "collateralValue",
-    "appraisedValue"
+    "appraisedValue",
+    "marketValue",
+    "priorClaims",
+    "borrowingBase",
+    "purchasePrice",
+    "assetId",
+    "lienPriority",
+    "contextFingerprint"
 }
 
 local VALID_RATE_PREFERENCES = {
@@ -89,31 +100,19 @@ local function rejectAuthoritativeFields(rawIntent)
     return true, nil
 end
 
-function AGFFinancialApplicationIntentService.sanitize(rawIntent, serverContext)
-    rawIntent = rawIntent or {}
-    serverContext = serverContext or {}
-
-    local authoritativeOk, authoritativeError = rejectAuthoritativeFields(rawIntent)
-    if not authoritativeOk then return false, authoritativeError end
-
-    local farmId = positiveInteger(serverContext.derivedFarmId)
-    if farmId == nil then return false, "SERVER_FARM_REQUIRED" end
-
-    local productType = rawIntent.productType
-    if productType == nil or not AGFProductCatalog.exists(productType) then
-        return false, "UNKNOWN_PRODUCT"
+local function anyPresent(rawIntent, fields)
+    for _, field in ipairs(fields) do
+        if rawIntent[field] ~= nil then return true end
     end
+    return false
+end
 
-    local product = AGFProductCatalog.get(productType)
-    local intent = {
-        farmId = farmId,
-        connectionKey = serverContext.connectionKey ~= nil and tostring(serverContext.connectionKey) or nil,
-        productType = productType,
-        productKind = product.kind,
-        contextFingerprint = serverContext.contextFingerprint,
-        purposeCode = rawIntent.purposeCode ~= nil and tostring(rawIntent.purposeCode) or nil,
-        metadata = copyMetadata(rawIntent.metadata)
-    }
+local function applyRatePreference(rawIntent, product, intent)
+    if not product.supportsFixedRate and not product.supportsVariableRate then
+        if rawIntent.ratePreference ~= nil then return false, "RATE_PREFERENCE_NOT_APPLICABLE" end
+        intent.ratePreference = nil
+        return true, nil
+    end
 
     if rawIntent.ratePreference ~= nil then
         local preference = tostring(rawIntent.ratePreference)
@@ -124,6 +123,12 @@ function AGFFinancialApplicationIntentService.sanitize(rawIntent, serverContext)
     else
         intent.ratePreference = "either"
     end
+    return true, nil
+end
+
+local function applyCommonCreditPreferences(rawIntent, product, intent)
+    local rateOk, rateError = applyRatePreference(rawIntent, product, intent)
+    if not rateOk then return false, rateError end
 
     if rawIntent.requestedTermPeriods ~= nil then
         intent.requestedTermPeriods = positiveInteger(rawIntent.requestedTermPeriods)
@@ -152,17 +157,78 @@ function AGFFinancialApplicationIntentService.sanitize(rawIntent, serverContext)
         intent.balloonPercent = balloon
     end
 
+    return true, nil
+end
+
+function AGFFinancialApplicationIntentService.sanitize(rawIntent, serverContext)
+    rawIntent = rawIntent or {}
+    serverContext = serverContext or {}
+
+    local authoritativeOk, authoritativeError = rejectAuthoritativeFields(rawIntent)
+    if not authoritativeOk then return false, authoritativeError end
+
+    local farmId = positiveInteger(serverContext.derivedFarmId)
+    if farmId == nil then return false, "SERVER_FARM_REQUIRED" end
+
+    local productType = rawIntent.productType
+    if productType == nil or not AGFProductCatalog.exists(productType) then
+        return false, "UNKNOWN_PRODUCT"
+    end
+
+    local product = AGFProductCatalog.get(productType)
+    local intent = {
+        farmId = farmId,
+        connectionKey = serverContext.connectionKey ~= nil and tostring(serverContext.connectionKey) or nil,
+        productType = productType,
+        productKind = product.kind,
+        contextFingerprint = serverContext.contextFingerprint,
+        purposeCode = rawIntent.purposeCode ~= nil and tostring(rawIntent.purposeCode) or nil,
+        metadata = copyMetadata(rawIntent.metadata)
+    }
+
+    if product.kind == AGFProductKind.LEASE then
+        if anyPresent(rawIntent, {
+            "requestedAmount",
+            "requestedLimit",
+            "requestedDownPayment",
+            "requestedDownPaymentPercent",
+            "requestedTermPeriods",
+            "paymentsPerYear",
+            "ratePreference",
+            "interestOnlyPeriods",
+            "balloonPercent"
+        }) then
+            return false, "LEASE_FINANCE_FIELDS_NOT_ALLOWED"
+        end
+        if serverContext.contextFingerprint == nil or serverContext.contextFingerprint == "" then
+            return false, "SERVER_CONTEXT_FINGERPRINT_REQUIRED"
+        end
+        intent.ratePreference = nil
+        intent.requestedLeaseTermPeriods = positiveInteger(rawIntent.requestedLeaseTermPeriods)
+        if intent.requestedLeaseTermPeriods == nil then return false, "REQUESTED_LEASE_TERM_REQUIRED" end
+        return true, intent
+    end
+
+    local preferenceOk, preferenceError = applyCommonCreditPreferences(rawIntent, product, intent)
+    if not preferenceOk then return false, preferenceError end
+
     if product.kind == AGFProductKind.REVOLVING_CREDIT then
         intent.requestedLimit = positiveMoney(rawIntent.requestedLimit)
         if intent.requestedLimit == nil then return false, "REQUESTED_LIMIT_REQUIRED" end
-        if rawIntent.requestedAmount ~= nil or rawIntent.requestedDownPayment ~= nil then
+        if anyPresent(rawIntent, {"requestedAmount", "requestedDownPayment", "requestedDownPaymentPercent", "interestOnlyPeriods"}) then
             return false, "REVOLVER_PURCHASE_FIELDS_NOT_ALLOWED"
         end
     elseif product.kind == AGFProductKind.TERM_CREDIT then
         intent.requestedAmount = positiveMoney(rawIntent.requestedAmount)
         if intent.requestedAmount == nil then return false, "REQUESTED_AMOUNT_REQUIRED" end
-        if rawIntent.requestedDownPayment ~= nil then return false, "TERM_DOWN_PAYMENT_NOT_APPLICABLE" end
+        if anyPresent(rawIntent, {"requestedLimit", "requestedDownPayment", "requestedDownPaymentPercent"}) then
+            return false, "TERM_DOWN_PAYMENT_NOT_APPLICABLE"
+        end
     elseif product.kind == AGFProductKind.ASSET_FINANCE then
+        if rawIntent.requestedLimit ~= nil or rawIntent.requestedAmount ~= nil then
+            return false, "ASSET_FINANCE_AMOUNT_IS_SERVER_DERIVED"
+        end
+
         local serverPrice = positiveMoney(serverContext.purchasePrice)
         if serverPrice == nil then return false, "SERVER_PURCHASE_PRICE_REQUIRED" end
         if serverContext.contextFingerprint == nil or serverContext.contextFingerprint == "" then
@@ -184,12 +250,6 @@ function AGFFinancialApplicationIntentService.sanitize(rawIntent, serverContext)
             end
             intent.requestedDownPaymentPercent = percent
         end
-    elseif product.kind == AGFProductKind.LEASE then
-        if serverContext.contextFingerprint == nil or serverContext.contextFingerprint == "" then
-            return false, "SERVER_CONTEXT_FINGERPRINT_REQUIRED"
-        end
-        intent.requestedLeaseTermPeriods = positiveInteger(rawIntent.requestedLeaseTermPeriods)
-        if intent.requestedLeaseTermPeriods == nil then return false, "REQUESTED_LEASE_TERM_REQUIRED" end
     else
         return false, "UNSUPPORTED_PRODUCT_KIND"
     end
