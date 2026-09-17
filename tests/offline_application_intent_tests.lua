@@ -37,14 +37,22 @@ assertEqual(ciloc.requestedLimit, 250000, "requested limit retained")
 assertEqual(ciloc.ratePreference, "variable", "rate preference retained")
 assertEqual(ciloc.connectionKey, "conn-7", "connection context retained")
 
--- Client may never assert farm identity or pricing/approval facts.
+-- Client may never assert farm identity, pricing, approval, purchase/collateral,
+-- or context facts that the server is responsible for resolving.
 local forbiddenCases = {
     {field = "farmId", value = 99},
+    {field = "connectionKey", value = "fake"},
     {field = "annualRate", value = 0.01},
     {field = "quote", value = {}},
     {field = "decisionStatus", value = "approve"},
+    {field = "manualApproval", value = true},
     {field = "creditLimit", value = 999999},
-    {field = "collateralValue", value = 1000000}
+    {field = "collateralValue", value = 1000000},
+    {field = "purchasePrice", value = 1},
+    {field = "assetId", value = "CLIENT-ASSET"},
+    {field = "lienPriority", value = 1},
+    {field = "borrowingBase", value = 999999},
+    {field = "contextFingerprint", value = "fake-context"}
 }
 for _, forbidden in ipairs(forbiddenCases) do
     local intent = {
@@ -86,6 +94,17 @@ local missingPriceOk, missingPriceError = AGFFinancialApplicationIntentService.s
 })
 assertFalse(missingPriceOk, "asset finance needs server price")
 assertEqual(missingPriceError, "SERVER_PURCHASE_PRICE_REQUIRED", "missing server price error")
+
+local clientAssetAmountOk, clientAssetAmountError = AGFFinancialApplicationIntentService.sanitize({
+    productType = AGFProductType.EQUIPMENT_FINANCE,
+    requestedAmount = 100000
+}, {
+    derivedFarmId = 2,
+    purchasePrice = 500000,
+    contextFingerprint = "vehicle:x"
+})
+assertFalse(clientAssetAmountOk, "asset principal amount is server-derived from price/equity")
+assertEqual(clientAssetAmountError, "ASSET_FINANCE_AMOUNT_IS_SERVER_DERIVED", "asset amount error")
 
 local purchaseFieldOk, purchaseFieldError = AGFFinancialApplicationIntentService.sanitize({
     productType = AGFProductType.OPERATING_LINE,
@@ -131,5 +150,17 @@ local leaseOk, lease = AGFFinancialApplicationIntentService.sanitize({
 })
 assertTrue(leaseOk, "land lease application sanitizes")
 assertEqual(lease.requestedLeaseTermPeriods, 24, "lease term retained")
+assertEqual(lease.ratePreference, nil, "lease carries no credit rate preference")
+
+local leaseFinanceOk, leaseFinanceError = AGFFinancialApplicationIntentService.sanitize({
+    productType = AGFProductType.LAND_LEASE,
+    requestedLeaseTermPeriods = 24,
+    ratePreference = "fixed"
+}, {
+    derivedFarmId = 5,
+    contextFingerprint = "farmland:17"
+})
+assertFalse(leaseFinanceOk, "lease financing fields rejected")
+assertEqual(leaseFinanceError, "LEASE_FINANCE_FIELDS_NOT_ALLOWED", "lease finance-field error")
 
 print("offline_application_intent_tests: PASS")
