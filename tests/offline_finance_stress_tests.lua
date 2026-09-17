@@ -167,7 +167,6 @@ for caseIndex = 1, 150 do
         assertTrue(quote.rateTermSummary.requiresRenewal, "quote stress shorter term renews")
         assertTrue(quote.rateTermSummary.renewalPrincipal > 0, "quote stress renewal balance positive")
     else
-        assertFalse = nil -- Lua 5.1 has no local assertion here; explicit condition below.
         assertTrue(not quote.rateTermSummary.requiresRenewal, "quote stress maturity has no renewal")
         assertTrue(AGFCurrency.equals(quote.rateTermSummary.renewalPrincipal, 0), "quote stress maturity renewal zero")
     end
