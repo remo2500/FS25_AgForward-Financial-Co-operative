@@ -33,6 +33,39 @@ local function addIssue(profile, quality, code, detail)
     end
 end
 
+local function positiveWhole(value)
+    local number = tonumber(value)
+    if number == nil or number <= 0 or number ~= math.floor(number) then return nil end
+    return number
+end
+
+local function getPaymentFrequency(liability)
+    -- Schema-v3 liabilities are monthly by default. Offline/future contract
+    -- models may expose frequency directly or through persisted metadata until
+    -- the post-runtime schema promotion is deliberately implemented.
+    local frequency = positiveWhole(liability.paymentFrequency)
+        or positiveWhole(liability.paymentsPerYear)
+        or positiveWhole(liability.metadata ~= nil and liability.metadata.paymentsPerYear or nil)
+        or 12
+    if frequency ~= 1 and frequency ~= 2 and frequency ~= 4 and frequency ~= 12 then
+        return nil
+    end
+    return frequency
+end
+
+local function getRemainingPaymentPeriods(liability, paymentFrequency)
+    local explicit = positiveWhole(liability.remainingPaymentPeriods)
+        or positiveWhole(liability.metadata ~= nil and liability.metadata.remainingPaymentPeriods or nil)
+    if explicit ~= nil then return explicit end
+
+    -- Legacy schema-v3 term is stored in months. Convert remaining months to the
+    -- number of scheduled payments for non-monthly offline contract models.
+    local remainingMonths = math.max(0, math.floor(tonumber(liability.remainingTermMonths) or 0))
+    if remainingMonths <= 0 then return nil end
+    if paymentFrequency == 12 then return remainingMonths end
+    return math.max(1, math.ceil((remainingMonths / 12) * paymentFrequency))
+end
+
 local function estimateNativeDebtService(liabilities, profile)
     local annualDebtService = 0
     local currentLiabilityPortion = 0
@@ -41,15 +74,28 @@ local function estimateNativeDebtService(liabilities, profile)
         local outstanding = AGFCurrency.round(liability:getOutstandingBalance())
         if outstanding > 0 then
             local payment = AGFCurrency.round(liability.scheduledPayment or 0)
-            local remaining = math.max(0, math.floor(tonumber(liability.remainingTermMonths) or 0))
+            local paymentFrequency = getPaymentFrequency(liability)
+            if paymentFrequency == nil then
+                addIssue(
+                    profile,
+                    AGFCreditDataQuality.INSUFFICIENT_HISTORY,
+                    "INVALID_PAYMENT_FREQUENCY",
+                    tostring(liability.id)
+                )
+                paymentFrequency = 12
+            end
+            local remainingPayments = getRemainingPaymentPeriods(liability, paymentFrequency)
 
             if payment > 0 then
-                local paymentCount = remaining > 0 and math.min(12, remaining) or 12
+                local paymentCount = remainingPayments ~= nil and math.min(paymentFrequency, remainingPayments) or paymentFrequency
                 local scheduled = AGFCurrency.round(payment * paymentCount)
                 annualDebtService = AGFCurrency.round(annualDebtService + scheduled)
                 currentLiabilityPortion = AGFCurrency.round(currentLiabilityPortion + math.min(outstanding, scheduled))
 
-                if remaining > 0 and remaining <= 12 and (liability.balloonAmount or 0) > 0 then
+                -- A maturity balloon is a next-12-month burden only when the
+                -- remaining scheduled-payment count reaches maturity inside one
+                -- annual payment cycle for that contract frequency.
+                if remainingPayments ~= nil and remainingPayments <= paymentFrequency and (liability.balloonAmount or 0) > 0 then
                     local balloon = math.min(AGFCurrency.round(liability.balloonAmount), math.max(0, outstanding - scheduled))
                     annualDebtService = AGFCurrency.round(annualDebtService + balloon)
                     currentLiabilityPortion = AGFCurrency.round(currentLiabilityPortion + balloon)
