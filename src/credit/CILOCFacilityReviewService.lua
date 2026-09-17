@@ -30,6 +30,7 @@ local function summarizeFinancedBudgets(budgetSummary)
     local overFinancedBudget = 0
     local unbudgetedCategories = 0
     local overBudgetCategories = 0
+    local categoryOverBudgetAmount = 0
 
     for _, category in ipairs(budgetSummary.order or {}) do
         local row = budgetSummary.categories[category]
@@ -45,6 +46,7 @@ local function summarizeFinancedBudgets(budgetSummary)
             end
             if (row.overBudgetAmount or 0) > 0 then
                 overBudgetCategories = overBudgetCategories + 1
+                categoryOverBudgetAmount = AGFCurrency.round(categoryOverBudgetAmount + row.overBudgetAmount)
             end
         end
     end
@@ -55,7 +57,8 @@ local function summarizeFinancedBudgets(budgetSummary)
         remainingFinancedCategoryCap = totalRemaining,
         overFinancedCategoryCap = overFinancedBudget,
         unbudgetedCategoryCount = unbudgetedCategories,
-        overBudgetCategoryCount = overBudgetCategories
+        overBudgetCategoryCount = overBudgetCategories,
+        categoryOverBudgetAmount = categoryOverBudgetAmount
     }
 end
 
@@ -117,6 +120,7 @@ function AGFCILOCFacilityReviewService.review(parameters)
             totalCashOrOtherFunding = budgetSummary.totalCashOrOtherFunding or 0,
             remainingPlannedBudget = budgetSummary.remainingPlannedBudget or 0,
             overBudgetAmount = budgetSummary.overBudgetAmount or 0,
+            categoryOverBudgetAmount = financedCaps.categoryOverBudgetAmount,
             budgetUtilization = totalPlanned > 0 and totalActual / totalPlanned or nil,
             financedShareOfActual = financedShareOfActual,
             facilityCoverageOfPlannedBudget = facilityCoverageOfPlannedBudget,
@@ -135,7 +139,9 @@ function AGFCILOCFacilityReviewService.review(parameters)
         cleanupRequired = season.requiredCleanupPaydown > 0,
         cleanupSatisfied = season.cleanupSatisfied == true,
         renewalRequired = season.renewalRequired == true,
-        budgetOverrun = budgetMetrics ~= nil and budgetMetrics.overBudgetAmount > 0 or false,
+        budgetOverrun = budgetMetrics ~= nil
+            and ((budgetMetrics.overBudgetAmount or 0) > 0 or (budgetMetrics.categoryOverBudgetAmount or 0) > 0)
+            or false,
         financedCategoryOverrun = budgetMetrics ~= nil and budgetMetrics.overFinancedCategoryCap > 0 or false,
         hasUnbudgetedSpend = budgetMetrics ~= nil and budgetMetrics.unbudgetedCategoryCount > 0 or false
     }
@@ -149,7 +155,9 @@ function AGFCILOCFacilityReviewService.review(parameters)
         addAttention("CLEANUP_PAYDOWN_REQUIRED", season.requiredCleanupPaydown)
     end
     if flags.renewalRequired then addAttention("MATURITY_RENEWAL_OR_PAYDOWN_REQUIRED", season.requiredCleanupPaydown) end
-    if flags.budgetOverrun then addAttention("INPUT_BUDGET_OVERRUN", budgetMetrics.overBudgetAmount) end
+    if flags.budgetOverrun then
+        addAttention("INPUT_BUDGET_OVERRUN", math.max(budgetMetrics.overBudgetAmount or 0, budgetMetrics.categoryOverBudgetAmount or 0))
+    end
     if flags.financedCategoryOverrun then addAttention("FINANCED_CATEGORY_BUDGET_OVERRUN", budgetMetrics.overFinancedCategoryCap) end
     if flags.hasUnbudgetedSpend then addAttention("UNBUDGETED_ELIGIBLE_INPUT_SPEND", nil) end
 
