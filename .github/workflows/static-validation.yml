@@ -118,6 +118,9 @@ jobs:
       - name: Run seasonal liquidity projection tests
         run: lua5.1 tests/offline_liquidity_projection_tests.lua
 
+      - name: Run collateral lending value tests
+        run: lua5.1 tests/offline_collateral_valuation_tests.lua
+
       - name: Run project finance and variable-rate tests
         run: lua5.1 tests/offline_project_rate_tests.lua
 
