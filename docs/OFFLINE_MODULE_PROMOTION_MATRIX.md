@@ -51,6 +51,7 @@ No entry in this matrix overrides `AGFORWARD_CURRENT_AUTHORITY.md` or the runtim
 | Exact debt-service window | `credit/DebtServiceWindowService.lua` | PURE-READY | persistent dated contract schedules |
 | Pro-forma underwriting | `credit/ProFormaUnderwritingService.lua` | PURE-READY | approved product policies/data inputs |
 | Credit policy | `credit/CreditPolicyService.lua` | PURE-READY | FS25-calibrated thresholds |
+| Covenant monitoring | `credit/CovenantMonitoringService.lua` | PURE-READY | choose product monitoring policies + history/persistence |
 | Seasonal liquidity | `credit/LiquidityProjectionService.lua` | PURE-READY | forecast input sources/calibration |
 | Credit stress | `credit/CreditStressService.lua` | PURE-READY | scenario policy calibration |
 | External obligations | `credit/ExternalObligation*.lua` | DESIGN-READY | discovery/reconciliation with vanilla/other mods |
@@ -66,6 +67,7 @@ No entry in this matrix overrides `AGFORWARD_CURRENT_AUTHORITY.md` or the runtim
 | Funding decision | `input/FundingDecisionService.lua` | PURE-READY | pre-affordability purchase hook |
 | Credit reservation | `input/CreditReservationService.lua` | PURE-READY | server concurrency/event integration |
 | Category budget tracking | `credit/CILOCBudgetService.lua` | PURE-READY | choose soft/hard production policy + persistence |
+| Integrated facility review | `credit/CILOCFacilityReviewService.lua` | PURE-READY | authoritative budget/base/facility data + UI/persistence |
 | Actual eligible purchase finance | Phase-0 classifier/accounting + future hook | RUNTIME-BLOCKED | intercept before FS affordability decision |
 
 ## Assets / liens / rights
