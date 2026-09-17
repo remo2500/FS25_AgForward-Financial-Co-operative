@@ -1,9 +1,7 @@
 -- Offline validation for the future read-only Phase-0 diagnostic view model.
 
-function Class(base)
-    local class = {}
-    class.__index = class
-    return class
+function Class(classTable)
+    return {__index = classTable}
 end
 
 dofile("src/core/Currency.lua")
