@@ -124,6 +124,9 @@ jobs:
       - name: Run integrated CILOC facility review tests
         run: lua5.1 tests/offline_ciloc_facility_review_tests.lua
 
+      - name: Run integrated CILOC purchase preflight tests
+        run: lua5.1 tests/offline_ciloc_purchase_preflight_tests.lua
+
       - name: Run offline credit policy tests
         run: lua5.1 tests/offline_credit_policy_tests.lua
 
