@@ -29,6 +29,12 @@ jobs:
       - name: Test runtime analysis tools
         run: python -m unittest tests/test_runtime_tools.py
 
+      - name: Test runtime package builder
+        run: python -m unittest tests/test_package_builder.py
+
+      - name: Build explicit runtime candidate ZIP
+        run: python tools/build_mod_package.py --output /tmp/FS25_AgForwardFinance.zip --list
+
       - name: Install Lua 5.1
         run: |
           sudo apt-get update
