@@ -68,6 +68,7 @@ No entry in this matrix overrides `AGFORWARD_CURRENT_AUTHORITY.md` or the runtim
 | Credit reservation | `input/CreditReservationService.lua` | PURE-READY | server concurrency/event integration |
 | Category budget tracking | `credit/CILOCBudgetService.lua` | PURE-READY | choose soft/hard production policy + persistence |
 | Integrated facility review | `credit/CILOCFacilityReviewService.lua` | PURE-READY | authoritative budget/base/facility data + UI/persistence |
+| Purchase preflight planner | `input/CILOCPurchasePreflightService.lua` | PURE-READY | live pre-affordability hook + real server reservation/atomic commit |
 | Actual eligible purchase finance | Phase-0 classifier/accounting + future hook | RUNTIME-BLOCKED | intercept before FS affordability decision |
 
 ## Assets / liens / rights
