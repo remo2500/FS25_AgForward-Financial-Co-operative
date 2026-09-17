@@ -85,6 +85,9 @@ jobs:
       - name: Run dated loan contract schedule tests
         run: lua5.1 tests/offline_contract_schedule_tests.lua
 
+      - name: Run exact debt service horizon tests
+        run: lua5.1 tests/offline_debt_service_window_tests.lua
+
       - name: Run structured interest-only amortization tests
         run: lua5.1 tests/offline_structured_amortization_tests.lua
 
