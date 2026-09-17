@@ -121,6 +121,9 @@ jobs:
       - name: Run collateral lending value tests
         run: lua5.1 tests/offline_collateral_valuation_tests.lua
 
+      - name: Run whole-farm credit stress tests
+        run: lua5.1 tests/offline_credit_stress_tests.lua
+
       - name: Run project finance and variable-rate tests
         run: lua5.1 tests/offline_project_rate_tests.lua
 
