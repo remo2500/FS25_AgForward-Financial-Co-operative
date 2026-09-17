@@ -115,6 +115,9 @@ jobs:
       - name: Run whole-farm credit profile tests
         run: lua5.1 tests/offline_credit_profile_tests.lua
 
+      - name: Run seasonal liquidity projection tests
+        run: lua5.1 tests/offline_liquidity_projection_tests.lua
+
       - name: Run project finance and variable-rate tests
         run: lua5.1 tests/offline_project_rate_tests.lua
 
