@@ -51,12 +51,16 @@ local liens = AGFLienRegistry.new(ids, writableRuntime, assets, liabilities)
 local leases = AGFLeaseRegistry.new(ids, writableRuntime, assets)
 local builder = AGFCreditProfileBuilder.new(liabilities, external, assets, rights, liens, leases)
 
--- Secured term loan: $60k principal, $5k monthly payment, 24 periods remaining.
+-- Secured term loan: $60k principal with $15k quarterly payments and eight
+-- payments remaining. Annual burden is four payments = $60k, demonstrating that
+-- profile debt service no longer assumes every scheduled payment is monthly.
 local termLoan = liabilities:create(1, AGFProductType.TERM_LOAN, "Equipment Note")
 termLoan.principalBalance = 60000
 termLoan.originalPrincipal = 80000
-termLoan.scheduledPayment = 5000
+termLoan.scheduledPayment = 15000
 termLoan.remainingTermMonths = 24
+termLoan:setMetadata("paymentsPerYear", 4)
+termLoan:setMetadata("remainingPaymentPeriods", 8)
 local termRegistered, termError = liabilities:register(termLoan)
 assertTrue(termRegistered, termError)
 
@@ -132,7 +136,7 @@ assertEqual(profile.metrics.totalAssets, 200000, "only economically owned asset 
 assertEqual(profile.metrics.totalLiabilities, 100000, "native plus external liabilities")
 assertEqual(profile.metrics.equity, 100000, "represented equity")
 assertNear(profile.metrics.debtToAssets, 0.5, 0.0000000001, "debt to assets")
-assertEqual(profile.metrics.annualDebtService, 64000, "native plus external annual debt service")
+assertEqual(profile.metrics.annualDebtService, 64000, "frequency-aware native plus external annual debt service")
 assertEqual(profile.metrics.annualLeaseAndFixedCharges, 12000, "lease fixed charges")
 assertNear(profile.metrics.dscr, 2.0, 0.0000000001, "DSCR")
 assertNear(profile.metrics.fixedChargeCoverage, 2.0, 0.0000000001, "fixed charge coverage")
@@ -146,6 +150,24 @@ assertNear(profile.metrics.liquidityCoverage, 130000 / 76000, 0.0000000001, "liq
 assertEqual(profile.metadata.ownedRegisteredAssetValue, "100000", "leased land excluded from owned registered asset value")
 assertEqual(profile.metadata.annualLeaseCharges, "12000", "lease charge metadata")
 assertEqual(profile.metadata.undrawnCommittedCredit, "80000", "undrawn revolver metadata")
+
+-- A semi-annual liability demonstrates the fallback conversion from legacy
+-- remainingTermMonths when an explicit remaining-payment count is unavailable.
+local semiAnnual = liabilities:create(2, AGFProductType.TERM_LOAN, "Semiannual Test")
+semiAnnual.principalBalance = 100000
+semiAnnual.scheduledPayment = 12000
+semiAnnual.remainingTermMonths = 18
+semiAnnual:setMetadata("paymentsPerYear", 2)
+local semiRegistered, semiError = liabilities:register(semiAnnual)
+assertTrue(semiRegistered, semiError)
+local semiProfile = builder:build(2, {
+    cashAndLiquidAssets = 10000,
+    currentAssets = 10000,
+    cashAvailableForDebtService = 48000,
+    cashAvailableForFixedCharges = 48000
+})
+assertEqual(semiProfile.metrics.annualDebtService, 24000, "semiannual payment frequency annualized correctly")
+assertNear(semiProfile.metrics.dscr, 2.0, 0.0000000001, "semiannual DSCR")
 
 -- Unresolved collateral degrades profile quality without deleting the asset or debt.
 local unresolvedSet, unresolvedError = assets:setRuntimeLink(vehicle.id, nil)
