@@ -73,7 +73,13 @@ function AGFCovenantMonitoringService.evaluate(values, covenantSet, context)
         result.ruleCount = result.ruleCount + 1
         local ruleId = rule.id or ((rule.metric or "covenant") .. "-" .. tostring(index))
         local metricName = rule.metric
-        local actual = metricName ~= nil and values[metricName] or nil
+        local actual = nil
+        if metricName ~= nil then
+            -- Do not use `a and b or nil` here: boolean false is a valid
+            -- covenant value (for example cleanupSatisfied=false) and must not
+            -- be misclassified as missing data.
+            actual = values[metricName]
+        end
         local threshold = normalizeThreshold(rule.value)
         if threshold == nil then return false, "INVALID_COVENANT_THRESHOLD:" .. tostring(ruleId) end
 
