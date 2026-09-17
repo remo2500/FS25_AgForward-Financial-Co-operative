@@ -127,6 +127,9 @@ jobs:
       - name: Run offline credit policy tests
         run: lua5.1 tests/offline_credit_policy_tests.lua
 
+      - name: Run covenant monitoring tests
+        run: lua5.1 tests/offline_covenant_monitoring_tests.lua
+
       - name: Run whole-farm credit profile tests
         run: lua5.1 tests/offline_credit_profile_tests.lua
 
