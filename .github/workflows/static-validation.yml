@@ -64,6 +64,9 @@ jobs:
       - name: Run offline finance tests
         run: lua5.1 tests/offline_finance_tests.lua
 
+      - name: Run deterministic finance stress matrix
+        run: lua5.1 tests/offline_finance_stress_tests.lua
+
       - name: Run liability payment posting-plan tests
         run: lua5.1 tests/offline_payment_plan_tests.lua
 
@@ -93,6 +96,12 @@ jobs:
 
       - name: Run server financial offer tests
         run: lua5.1 tests/offline_financial_offer_tests.lua
+
+      - name: Run application intent security tests
+        run: lua5.1 tests/offline_application_intent_tests.lua
+
+      - name: Run origination planning tests
+        run: lua5.1 tests/offline_origination_plan_tests.lua
 
       - name: Run offline invariant matrix
         run: lua5.1 tests/offline_invariant_tests.lua
