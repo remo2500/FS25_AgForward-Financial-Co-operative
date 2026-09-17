@@ -118,6 +118,9 @@ jobs:
       - name: Run offline CILOC policy tests
         run: lua5.1 tests/offline_ciloc_policy_tests.lua
 
+      - name: Run CILOC crop input budget tests
+        run: lua5.1 tests/offline_ciloc_budget_tests.lua
+
       - name: Run offline credit policy tests
         run: lua5.1 tests/offline_credit_policy_tests.lua
 
