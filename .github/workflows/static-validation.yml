@@ -97,6 +97,12 @@ jobs:
       - name: Run prepayment policy tests
         run: lua5.1 tests/offline_prepayment_policy_tests.lua
 
+      - name: Run liability payoff quote tests
+        run: lua5.1 tests/offline_payoff_quote_tests.lua
+
+      - name: Run secured disposition execution-plan tests
+        run: lua5.1 tests/offline_secured_disposition_plan_tests.lua
+
       - name: Run staged project draw tests
         run: lua5.1 tests/offline_project_draw_tests.lua
 
