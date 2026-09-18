@@ -118,6 +118,9 @@ jobs:
       - name: Run servicing review tests
         run: lua5.1 tests/offline_servicing_review_tests.lua
 
+      - name: Run rate-renewal amendment-plan tests
+        run: lua5.1 tests/offline_renewal_plan_tests.lua
+
       - name: Run offline invariant matrix
         run: lua5.1 tests/offline_invariant_tests.lua
 
@@ -168,6 +171,12 @@ jobs:
 
       - name: Run financial history tests
         run: lua5.1 tests/offline_financial_history_tests.lua
+
+      - name: Run financial statement tests
+        run: lua5.1 tests/offline_financial_statement_tests.lua
+
+      - name: Run external obligation reconciliation tests
+        run: lua5.1 tests/offline_external_obligation_reconciliation_tests.lua
 
       - name: Run read-only diagnostic snapshot tests
         run: lua5.1 tests/offline_diagnostic_snapshot_tests.lua
