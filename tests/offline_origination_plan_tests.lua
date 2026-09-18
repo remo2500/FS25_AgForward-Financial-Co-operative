@@ -200,6 +200,37 @@ assertEqual(cilocPlan.security.mode, "generalSecurity", "CILOC general security"
 assertEqual(cilocPlan.season.state, AGFCILOCSeasonState.ACTIVE_SEASON, "season state")
 assertEqual(cilocPlan.season.availableCapacity, 240000, "season capacity")
 
+-- Project finance originates as an undrawn commitment, not a day-one term advance.
+local projectQuoteOk, projectQuote = AGFLoanQuoteService.quote({
+    purchasePrice = 600000,
+    downPayment = 100000,
+    periods = 120,
+    paymentsPerYear = 12,
+    rateTermPeriods = 60,
+    interestOnlyPeriods = 6,
+    rateComponents = {baseRate = 0.05, productSpread = 0.0125, riskSpread = 0.004}
+})
+assertTrue(projectQuoteOk, "project quote")
+local projectPlanOk, projectPlan = AGFOriginationPlanService.build({
+    farmId = 6,
+    productType = AGFProductType.PROJECT_FINANCE,
+    quote = projectQuote,
+    creditDecision = approve,
+    assetId = "AGF-ASSET-PROJECT-1",
+    startYear = 12,
+    startPeriod = 4
+})
+assertTrue(projectPlanOk, "project commitment origination")
+assertEqual(projectPlan.planType, "projectCommitmentOrigination", "project plan type")
+assertEqual(projectPlan.liability.commitmentAmount, 500000, "project approved commitment")
+assertEqual(projectPlan.liability.principalBalance, 0, "project starts undrawn")
+assertEqual(projectPlan.liability.originalPrincipal, 0, "no day-one project principal")
+assertEqual(projectPlan.liability.undrawnCommitment, 500000, "project undrawn commitment")
+assertEqual(projectPlan.closing.cashEquity, 100000, "project equity commitment")
+assertEqual(projectPlan.closing.projectCost, 600000, "project cost")
+assertEqual(projectPlan.conversionPreview.totalPaymentPeriods, 120, "conversion preview retained")
+assertEqual(projectPlan.contractSchedule, nil, "conversion preview is not live contract schedule")
+
 -- Wrong product path is rejected explicitly.
 local leasePlanOk, leasePlanError = AGFOriginationPlanService.build({
     farmId = 5,

@@ -137,6 +137,61 @@ function AGFOriginationPlanService.buildTermPlan(parameters)
     if interestRate == nil or not isFinite(interestRate) or interestRate < 0 then return false, "INVALID_QUOTE_RATE" end
 
     local maturity = contractSchedule.schedule[#contractSchedule.schedule]
+
+    -- Project finance is a commitment with staged advances. The approved
+    -- commitment is not day-one principal and the conversion amortization
+    -- schedule is only a preview until actual construction draws are known.
+    if productType == AGFProductType.PROJECT_FINANCE then
+        local liabilityPlan = {
+            farmId = farmId,
+            productType = productType,
+            status = "pendingClose",
+            revolving = false,
+            originalPrincipal = 0,
+            principalBalance = 0,
+            commitmentAmount = principal,
+            undrawnCommitment = principal,
+            interestRate = interestRate,
+            constructionRate = interestRate,
+            scheduledPayment = 0,
+            startYear = startYear,
+            startPeriod = startPeriod,
+            contextFingerprint = parameters.contextFingerprint
+        }
+
+        return true, {
+            planType = "projectCommitmentOrigination",
+            farmId = farmId,
+            productType = productType,
+            productKind = product.kind,
+            decision = buildDecisionSummary(parameters.creditDecision, parameters.manualApproval),
+            liability = liabilityPlan,
+            security = securityPlan,
+            closing = {
+                projectCost = purchasePrice,
+                cashEquity = downPayment,
+                approvedCommitment = principal,
+                sourceTotal = AGFCurrency.round(downPayment + principal),
+                stagedFunding = true
+            },
+            conversionPreview = {
+                paymentFrequency = quote.paymentsPerYear or 12,
+                totalPaymentPeriods = #contractSchedule.schedule,
+                interestOnlyPeriods = quote.interestOnlyPeriods or 0,
+                rateTermPeriods = quote.rateTermPeriods,
+                scheduledPayment = quote.quotedRegularPayment,
+                interestOnlyPayment = quote.interestOnlyPayment,
+                balloonAmount = quote.balloonAmount or 0,
+                firstDueYear = contractSchedule.firstDueYear,
+                firstDuePeriod = contractSchedule.firstDuePeriod,
+                maturityYear = maturity.dueYear,
+                maturityPeriod = maturity.duePeriod,
+                contractSchedule = contractSchedule
+            },
+            contextFingerprint = parameters.contextFingerprint
+        }
+    end
+
     local liabilityPlan = {
         farmId = farmId,
         productType = productType,

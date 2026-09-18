@@ -133,6 +133,27 @@ assertEqual(drawnOpenError, "REVOLVING_CLOSE_MUST_START_UNDRAWN", "drawn-open er
 revolvingPlan.liability.principalBalance = 0
 
 local projectPlan = {
+    planType = "projectCommitmentOrigination",
+    farmId = 1,
+    productType = AGFProductType.PROJECT_FINANCE,
+    liability = {
+        productType = AGFProductType.PROJECT_FINANCE,
+        originalPrincipal = 0,
+        principalBalance = 0,
+        commitmentAmount = 500000
+    },
+    security = {mode = "specificLien", assetId = "AGF-ASSET-PROJECT"},
+    closing = {projectCost = 600000, cashEquity = 100000, approvedCommitment = 500000}
+}
+local projectOk, project = AGFOriginationClosePlanService.build(projectPlan, {assetId = "AGF-ASSET-PROJECT"})
+assertTrue(projectOk, "staged project commitment opens without advance")
+assertEqual(project.closeType, "projectCommitmentOpen", "project commitment close type")
+assertEqual(project.fsCashDelta, 0, "project commitment open moves no cash")
+assertEqual(project.liabilityIntent.principalBalance, 0, "project commitment opens undrawn")
+assertEqual(project.liabilityIntent.undrawnCommitment, 500000, "full commitment undrawn")
+assertEqual(#project.ledgerIntents, 0, "commitment opening posts no proceeds")
+
+local legacyProject = {
     planType = "termOrigination",
     farmId = 1,
     productType = AGFProductType.PROJECT_FINANCE,
@@ -140,8 +161,8 @@ local projectPlan = {
     security = {mode = "specificLien", assetId = "AGF-ASSET-PROJECT"},
     closing = {purchasePrice = 600000, cashEquity = 100000, financedAmount = 500000}
 }
-local projectOk, projectError = AGFOriginationClosePlanService.build(projectPlan, {cashAvailable = 100000})
-assertFalse(projectOk, "staged project finance is not fully advanced on close")
-assertEqual(projectError, "PROJECT_FINANCE_REQUIRES_DRAW_BASED_CLOSE", "project close boundary")
+local legacyOk, legacyError = AGFOriginationClosePlanService.build(legacyProject, {})
+assertFalse(legacyOk, "legacy full-advance project close rejected")
+assertEqual(legacyError, "PROJECT_FINANCE_REQUIRES_COMMITMENT_ORIGINATION", "legacy project close boundary")
 
 print("offline_origination_close_plan_tests: PASS")

@@ -115,6 +115,9 @@ jobs:
       - name: Run origination close-plan tests
         run: lua5.1 tests/offline_origination_close_plan_tests.lua
 
+      - name: Run staged project draw transaction-plan tests
+        run: lua5.1 tests/offline_project_draw_plan_tests.lua
+
       - name: Run servicing review tests
         run: lua5.1 tests/offline_servicing_review_tests.lua
 
@@ -168,6 +171,9 @@ jobs:
 
       - name: Run settlement due-schedule tests
         run: lua5.1 tests/offline_settlement_due_schedule_tests.lua
+
+      - name: Run settlement execution-plan tests
+        run: lua5.1 tests/offline_settlement_execution_plan_tests.lua
 
       - name: Run financial state snapshot/delta tests
         run: lua5.1 tests/offline_financial_state_snapshot_tests.lua

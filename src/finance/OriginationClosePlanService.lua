@@ -65,12 +65,6 @@ function AGFOriginationClosePlanService.build(originationPlan, context)
     local productType = originationPlan.productType or originationPlan.liability.productType
     if productType == nil then return false, "PRODUCT_TYPE_REQUIRED" end
 
-    -- Project finance has a staged-draw model. Treating the approved commitment
-    -- as fully advanced on closing would overstate principal and cash.
-    if productType == AGFProductType.PROJECT_FINANCE then
-        return false, "PROJECT_FINANCE_REQUIRES_DRAW_BASED_CLOSE"
-    end
-
     local groupId = context.groupId or "PENDING_ORIGINATION_GROUP"
     local liabilityIntent = copyTable(originationPlan.liability)
     liabilityIntent.status = "active"
@@ -87,6 +81,54 @@ function AGFOriginationClosePlanService.build(originationPlan, context)
             return false, "ASSET_CONTEXT_MISMATCH"
         end
         securityIntent.proposedLienId = context.lienId
+    end
+
+    if originationPlan.planType == "projectCommitmentOrigination" then
+        if productType ~= AGFProductType.PROJECT_FINANCE then
+            return false, "PROJECT_COMMITMENT_PRODUCT_MISMATCH"
+        end
+        local principal = nonNegativeMoney(liabilityIntent.principalBalance or 0)
+        local originalPrincipal = nonNegativeMoney(liabilityIntent.originalPrincipal or 0)
+        local commitment = positiveMoney(liabilityIntent.commitmentAmount)
+        if principal == nil or originalPrincipal == nil or principal > 0 or originalPrincipal > 0 then
+            return false, "PROJECT_COMMITMENT_MUST_OPEN_UNDRAWN"
+        end
+        if commitment == nil then return false, "PROJECT_COMMITMENT_REQUIRED" end
+
+        local closing = originationPlan.closing or {}
+        local approvedCommitment = positiveMoney(closing.approvedCommitment or commitment)
+        if approvedCommitment == nil or not AGFCurrency.equals(approvedCommitment, commitment) then
+            return false, "PROJECT_COMMITMENT_MISMATCH"
+        end
+
+        liabilityIntent.undrawnCommitment = commitment
+        return true, {
+            closeType = "projectCommitmentOpen",
+            farmId = farmId,
+            productType = productType,
+            groupId = groupId,
+            liabilityIntent = liabilityIntent,
+            securityIntent = securityIntent,
+            ledgerIntents = {},
+            fsCashDelta = 0,
+            netLedgerAmount = 0,
+            requiresAssetAcquisition = false,
+            approvedCommitment = commitment,
+            cashEquityCommitment = nonNegativeMoney(closing.cashEquity or 0) or 0,
+            atomicEffects = {
+                "createLiability",
+                securityIntent.mode ~= nil and "createSecurity" or nil
+            },
+            reconciliation = {
+                balanced = true,
+                expectedCashDelta = 0,
+                ledgerNet = 0
+            }
+        }
+    end
+
+    if productType == AGFProductType.PROJECT_FINANCE then
+        return false, "PROJECT_FINANCE_REQUIRES_COMMITMENT_ORIGINATION"
     end
 
     if originationPlan.planType == "revolvingOrigination" then
