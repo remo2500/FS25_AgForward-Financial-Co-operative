@@ -112,6 +112,12 @@ jobs:
       - name: Run origination planning tests
         run: lua5.1 tests/offline_origination_plan_tests.lua
 
+      - name: Run origination close-plan tests
+        run: lua5.1 tests/offline_origination_close_plan_tests.lua
+
+      - name: Run servicing review tests
+        run: lua5.1 tests/offline_servicing_review_tests.lua
+
       - name: Run offline invariant matrix
         run: lua5.1 tests/offline_invariant_tests.lua
 
@@ -159,6 +165,9 @@ jobs:
 
       - name: Run offline reporting tests
         run: lua5.1 tests/offline_reporting_tests.lua
+
+      - name: Run financial history tests
+        run: lua5.1 tests/offline_financial_history_tests.lua
 
       - name: Run read-only diagnostic snapshot tests
         run: lua5.1 tests/offline_diagnostic_snapshot_tests.lua
