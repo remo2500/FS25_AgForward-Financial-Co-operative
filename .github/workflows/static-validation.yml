@@ -103,6 +103,12 @@ jobs:
       - name: Run secured disposition execution-plan tests
         run: lua5.1 tests/offline_secured_disposition_plan_tests.lua
 
+      - name: Run recovery liquidation plan tests
+        run: lua5.1 tests/offline_recovery_liquidation_plan_tests.lua
+
+      - name: Run cure payment plan tests
+        run: lua5.1 tests/offline_cure_payment_plan_tests.lua
+
       - name: Run staged project draw tests
         run: lua5.1 tests/offline_project_draw_tests.lua
 
