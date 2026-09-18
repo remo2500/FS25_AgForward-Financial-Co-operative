@@ -166,6 +166,15 @@ jobs:
       - name: Run offline policy and protocol tests
         run: lua5.1 tests/offline_policy_tests.lua
 
+      - name: Run settlement due-schedule tests
+        run: lua5.1 tests/offline_settlement_due_schedule_tests.lua
+
+      - name: Run financial state snapshot/delta tests
+        run: lua5.1 tests/offline_financial_state_snapshot_tests.lua
+
+      - name: Run Red Tape reconciliation expectation tests
+        run: lua5.1 tests/offline_red_tape_reconciliation_tests.lua
+
       - name: Run offline reporting tests
         run: lua5.1 tests/offline_reporting_tests.lua
 
@@ -177,6 +186,9 @@ jobs:
 
       - name: Run external obligation reconciliation tests
         run: lua5.1 tests/offline_external_obligation_reconciliation_tests.lua
+
+      - name: Run CSV reporting export tests
+        run: lua5.1 tests/offline_csv_report_tests.lua
 
       - name: Run read-only diagnostic snapshot tests
         run: lua5.1 tests/offline_diagnostic_snapshot_tests.lua
