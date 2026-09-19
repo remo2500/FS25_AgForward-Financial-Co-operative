@@ -210,3 +210,6 @@ jobs:
 
       - name: Run read-only diagnostic snapshot tests
         run: lua5.1 tests/offline_diagnostic_snapshot_tests.lua
+
+      - name: Run native UI information-architecture tests
+        run: lua5.1 tests/offline_ui_information_architecture_tests.lua
