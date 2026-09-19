@@ -10,5 +10,62 @@
         <text name="agf_payments" text="Payments &amp; Obligations"/>
         <text name="agf_reports" text="Reports"/>
         <text name="agf_cropInputLine" text="Crop Input Line of Credit"/>
+
+        <text name="agf_ui_overview" text="Overview"/>
+        <text name="agf_ui_bankingCredit" text="Credit"/>
+        <text name="agf_ui_assetFinance" text="Assets"/>
+        <text name="agf_ui_landLeases" text="Land"/>
+        <text name="agf_ui_paymentsObligations" text="Payments"/>
+        <text name="agf_ui_reports" text="Reports"/>
+        <text name="agf_ui_government" text="Government"/>
+        <text name="agf_ui_settings" text="Settings"/>
+
+        <text name="agf_ui_financialPosition" text="Financial Position"/>
+        <text name="agf_ui_creditFacilities" text="Credit Facilities"/>
+        <text name="agf_ui_upcomingObligations" text="Upcoming Obligations"/>
+        <text name="agf_ui_selectedFacility" text="Selected Facility"/>
+        <text name="agf_ui_availableReports" text="Available Reports"/>
+        <text name="agf_ui_runtimeStatus" text="Runtime Status"/>
+        <text name="agf_ui_cash" text="Cash"/>
+        <text name="agf_ui_equity" text="Represented Equity"/>
+        <text name="agf_ui_totalDebt" text="Total Debt"/>
+        <text name="agf_ui_workingCapital" text="Working Capital"/>
+        <text name="agf_ui_dscr" text="DSCR"/>
+        <text name="agf_ui_fixedChargeCoverage" text="Fixed-Charge Coverage"/>
+        <text name="agf_ui_debtAssets" text="Debt / Assets"/>
+        <text name="agf_ui_dataQuality" text="Data Quality"/>
+        <text name="agf_ui_product" text="Product"/>
+        <text name="agf_ui_balance" text="Balance"/>
+        <text name="agf_ui_limit" text="Limit"/>
+        <text name="agf_ui_available" text="Available"/>
+        <text name="agf_ui_rate" text="Rate"/>
+        <text name="agf_ui_status" text="Status"/>
+        <text name="agf_ui_due" text="Due"/>
+        <text name="agf_ui_type" text="Type"/>
+        <text name="agf_ui_amount" text="Amount"/>
+        <text name="agf_ui_report" text="Report"/>
+        <text name="agf_ui_description" text="Description"/>
+        <text name="agf_ui_noFacilities" text="No AgForward credit facilities are currently active."/>
+        <text name="agf_ui_noObligations" text="No scheduled obligations are currently available."/>
+        <text name="agf_ui_runtimePending" text="Runtime integration pending"/>
+        <text name="agf_ui_readOnlyDevelopment" text="Read-only development view"/>
+        <text name="agf_ui_product_operatingLine" text="Operating Line"/>
+        <text name="agf_ui_product_cropInputLine" text="Crop Input Line"/>
+        <text name="agf_ui_product_termLoan" text="Term Loan"/>
+        <text name="agf_ui_product_equipmentFinance" text="Equipment Finance"/>
+        <text name="agf_ui_product_projectFinance" text="Project Finance"/>
+        <text name="agf_ui_product_landFinance" text="Land Finance"/>
+        <text name="agf_ui_product_landLease" text="Land Lease"/>
+        <text name="agf_ui_report_financialPosition" text="Financial Position"/>
+        <text name="agf_ui_report_debtSchedule" text="Debt Schedule"/>
+        <text name="agf_ui_report_history" text="Financial History"/>
+        <text name="agf_ui_report_cropInputs" text="Crop Input Source of Funds"/>
+        <text name="agf_ui_report_assetsLiens" text="Assets &amp; Liens"/>
+        <text name="agf_ui_report_leases" text="Lease Commitments"/>
+        <text name="agf_ui_placeholder_assetFinance" text="Asset-finance UI foundation prepared; runtime activation pending."/>
+        <text name="agf_ui_placeholder_land" text="Land-finance and leasing UI foundation prepared; runtime activation pending."/>
+        <text name="agf_ui_placeholder_payments" text="Payment and servicing UI foundation prepared; runtime activation pending."/>
+        <text name="agf_ui_placeholder_government" text="Government information is shown only when a supported integration is available."/>
+        <text name="agf_ui_placeholder_settings" text="Only player-facing finance preferences will be shown here."/>
     </texts>
 </l10n>

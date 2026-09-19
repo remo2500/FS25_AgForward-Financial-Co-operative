@@ -26,6 +26,9 @@ jobs:
       - name: Validate repository structure
         run: python tools/validate_repository.py
 
+      - name: Validate native FS25 UI layout contract
+        run: python tools/validate_native_ui.py
+
       - name: Test runtime analysis tools
         run: python -m unittest tests/test_runtime_tools.py
 
@@ -213,3 +216,6 @@ jobs:
 
       - name: Run native UI information-architecture tests
         run: lua5.1 tests/offline_ui_information_architecture_tests.lua
+
+      - name: Run native UI view-model tests
+        run: lua5.1 tests/offline_native_ui_view_model_tests.lua
