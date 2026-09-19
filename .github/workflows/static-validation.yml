@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - phase0-foundation-hardening
+      - offline-foundations
   pull_request:
 
 permissions:
@@ -24,3 +25,197 @@ jobs:
 
       - name: Validate repository structure
         run: python tools/validate_repository.py
+
+      - name: Validate native FS25 UI layout contract
+        run: python tools/validate_native_ui.py
+
+      - name: Test runtime analysis tools
+        run: python -m unittest tests/test_runtime_tools.py
+
+      - name: Test runtime package builder
+        run: python -m unittest tests/test_package_builder.py
+
+      - name: Build explicit runtime candidate ZIP
+        run: python tools/build_mod_package.py --output /tmp/FS25_AgForwardFinance.zip --list
+
+      - name: Install Lua 5.1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1
+
+      - name: Check Lua syntax
+        run: find src -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
+
+      - name: Run core state and ledger tests
+        run: lua5.1 tests/offline_core_state_tests.lua
+
+      - name: Run Phase 0 runtime foundation tests
+        run: lua5.1 tests/offline_runtime_foundation_tests.lua
+
+      - name: Run offline save service tests
+        run: lua5.1 tests/offline_save_service_tests.lua
+
+      - name: Run native liability registry tests
+        run: lua5.1 tests/offline_liability_tests.lua
+
+      - name: Run coordinated operation tests
+        run: lua5.1 tests/offline_operation_tests.lua
+
+      - name: Run high-level accounting tests
+        run: lua5.1 tests/offline_accounting_tests.lua
+
+      - name: Run purchase classification and accumulator tests
+        run: lua5.1 tests/offline_input_tests.lua
+
+      - name: Run core integrity tests
+        run: lua5.1 tests/offline_integrity_tests.lua
+
+      - name: Run offline finance tests
+        run: lua5.1 tests/offline_finance_tests.lua
+
+      - name: Run deterministic finance stress matrix
+        run: lua5.1 tests/offline_finance_stress_tests.lua
+
+      - name: Run liability payment posting-plan tests
+        run: lua5.1 tests/offline_payment_plan_tests.lua
+
+      - name: Run agricultural payment frequency tests
+        run: lua5.1 tests/offline_payment_frequency_tests.lua
+
+      - name: Run agricultural lease schedule tests
+        run: lua5.1 tests/offline_lease_schedule_tests.lua
+
+      - name: Run dated loan contract schedule tests
+        run: lua5.1 tests/offline_contract_schedule_tests.lua
+
+      - name: Run exact debt service horizon tests
+        run: lua5.1 tests/offline_debt_service_window_tests.lua
+
+      - name: Run structured interest-only amortization tests
+        run: lua5.1 tests/offline_structured_amortization_tests.lua
+
+      - name: Run rate-term renewal tests
+        run: lua5.1 tests/offline_rate_term_tests.lua
+
+      - name: Run prepayment policy tests
+        run: lua5.1 tests/offline_prepayment_policy_tests.lua
+
+      - name: Run liability payoff quote tests
+        run: lua5.1 tests/offline_payoff_quote_tests.lua
+
+      - name: Run secured disposition execution-plan tests
+        run: lua5.1 tests/offline_secured_disposition_plan_tests.lua
+
+      - name: Run recovery liquidation plan tests
+        run: lua5.1 tests/offline_recovery_liquidation_plan_tests.lua
+
+      - name: Run cure payment plan tests
+        run: lua5.1 tests/offline_cure_payment_plan_tests.lua
+
+      - name: Run staged project draw tests
+        run: lua5.1 tests/offline_project_draw_tests.lua
+
+      - name: Run hardened network protocol tests
+        run: lua5.1 tests/offline_network_protocol_tests.lua
+
+      - name: Run server financial offer tests
+        run: lua5.1 tests/offline_financial_offer_tests.lua
+
+      - name: Run application intent security tests
+        run: lua5.1 tests/offline_application_intent_tests.lua
+
+      - name: Run origination planning tests
+        run: lua5.1 tests/offline_origination_plan_tests.lua
+
+      - name: Run origination close-plan tests
+        run: lua5.1 tests/offline_origination_close_plan_tests.lua
+
+      - name: Run staged project draw transaction-plan tests
+        run: lua5.1 tests/offline_project_draw_plan_tests.lua
+
+      - name: Run servicing review tests
+        run: lua5.1 tests/offline_servicing_review_tests.lua
+
+      - name: Run rate-renewal amendment-plan tests
+        run: lua5.1 tests/offline_renewal_plan_tests.lua
+
+      - name: Run offline invariant matrix
+        run: lua5.1 tests/offline_invariant_tests.lua
+
+      - name: Run offline CILOC policy tests
+        run: lua5.1 tests/offline_ciloc_policy_tests.lua
+
+      - name: Run CILOC crop input budget tests
+        run: lua5.1 tests/offline_ciloc_budget_tests.lua
+
+      - name: Run integrated CILOC facility review tests
+        run: lua5.1 tests/offline_ciloc_facility_review_tests.lua
+
+      - name: Run integrated CILOC purchase preflight tests
+        run: lua5.1 tests/offline_ciloc_purchase_preflight_tests.lua
+
+      - name: Run offline credit policy tests
+        run: lua5.1 tests/offline_credit_policy_tests.lua
+
+      - name: Run covenant monitoring tests
+        run: lua5.1 tests/offline_covenant_monitoring_tests.lua
+
+      - name: Run whole-farm credit profile tests
+        run: lua5.1 tests/offline_credit_profile_tests.lua
+
+      - name: Run seasonal liquidity projection tests
+        run: lua5.1 tests/offline_liquidity_projection_tests.lua
+
+      - name: Run collateral lending value tests
+        run: lua5.1 tests/offline_collateral_valuation_tests.lua
+
+      - name: Run whole-farm credit stress tests
+        run: lua5.1 tests/offline_credit_stress_tests.lua
+
+      - name: Run project finance and variable-rate tests
+        run: lua5.1 tests/offline_project_rate_tests.lua
+
+      - name: Run product and accounting contract tests
+        run: lua5.1 tests/offline_contract_tests.lua
+
+      - name: Run offline asset model tests
+        run: lua5.1 tests/offline_asset_tests.lua
+
+      - name: Run offline policy and protocol tests
+        run: lua5.1 tests/offline_policy_tests.lua
+
+      - name: Run settlement due-schedule tests
+        run: lua5.1 tests/offline_settlement_due_schedule_tests.lua
+
+      - name: Run settlement execution-plan tests
+        run: lua5.1 tests/offline_settlement_execution_plan_tests.lua
+
+      - name: Run financial state snapshot/delta tests
+        run: lua5.1 tests/offline_financial_state_snapshot_tests.lua
+
+      - name: Run Red Tape reconciliation expectation tests
+        run: lua5.1 tests/offline_red_tape_reconciliation_tests.lua
+
+      - name: Run offline reporting tests
+        run: lua5.1 tests/offline_reporting_tests.lua
+
+      - name: Run financial history tests
+        run: lua5.1 tests/offline_financial_history_tests.lua
+
+      - name: Run financial statement tests
+        run: lua5.1 tests/offline_financial_statement_tests.lua
+
+      - name: Run external obligation reconciliation tests
+        run: lua5.1 tests/offline_external_obligation_reconciliation_tests.lua
+
+      - name: Run CSV reporting export tests
+        run: lua5.1 tests/offline_csv_report_tests.lua
+
+      - name: Run read-only diagnostic snapshot tests
+        run: lua5.1 tests/offline_diagnostic_snapshot_tests.lua
+
+      - name: Run native UI information-architecture tests
+        run: lua5.1 tests/offline_ui_information_architecture_tests.lua
+
+      - name: Run native UI view-model tests
+        run: lua5.1 tests/offline_native_ui_view_model_tests.lua

@@ -96,6 +96,20 @@ No product independently takes money at period change. The settlement engine mus
 
 ## Unified interface
 
+### Native FS25 visual authority
+
+AgForward's in-game UI must look and behave like a first-party FS25 menu.
+
+Locked direction:
+
+- use the base game's menu/frame/navigation conventions rather than a custom banking-app skin;
+- inherit native GIANTS GUI profiles wherever practical instead of hard-coding a separate AgForward palette;
+- preserve native typography, spacing, focus/highlight behavior, controller navigation, action-button presentation, list/table conventions, warning states, and page transitions;
+- use restrained AgForward branding: name/wordmark plus a native-style monochrome icon treatment;
+- any custom icon must match the visual weight, padding, monochrome treatment, and focus-state behavior of FS25 menu icons;
+- custom colors are only acceptable when they reproduce an existing FS25 semantic state or are proven visually indistinguishable from the base-game style;
+- the initial diagnostic UI remains read-only until runtime validation passes.
+
 Main AgForward pages:
 
 - Overview.

@@ -165,6 +165,20 @@ function AGFLiabilityRegistry:applyDrawCommitted(liabilityId, amount, internal)
     amount = math.abs(AGFCurrency.round(amount or 0))
     if amount <= 0 then return false, "INVALID_AMOUNT" end
 
+    -- Recheck the core revolver invariants at the actual mutation boundary.
+    -- The coordinator performs preflight validation, but committed mutations
+    -- must remain safe if a future multiplayer/request path changes state
+    -- between preflight and commit or accidentally calls this API directly.
+    if not liability:isOpen() or liability.status ~= AGFLiabilityStatus.ACTIVE then
+        return false, "LIABILITY_NOT_ACTIVE"
+    end
+    if not liability:isRevolving() then
+        return false, "LIABILITY_NOT_REVOLVING"
+    end
+    if AGFCurrency.toMinorUnits(amount) > AGFCurrency.toMinorUnits(liability:getAvailableCredit()) then
+        return false, "CREDIT_LIMIT_EXCEEDED"
+    end
+
     liability.principalBalance = AGFCurrency.round((liability.principalBalance or 0) + amount)
     return true, liability:clone()
 end
@@ -176,7 +190,12 @@ function AGFLiabilityRegistry:revertDrawCommitted(liabilityId, amount, internal)
     local liability = self:getInternal(liabilityId)
     if liability == nil then return false, "UNKNOWN_LIABILITY" end
     amount = math.abs(AGFCurrency.round(amount or 0))
-    liability.principalBalance = math.max(0, AGFCurrency.round((liability.principalBalance or 0) - amount))
+    if amount <= 0 then return false, "INVALID_AMOUNT" end
+    if AGFCurrency.toMinorUnits(amount) > AGFCurrency.toMinorUnits(math.max(0, liability.principalBalance or 0)) then
+        return false, "DRAW_REVERSION_EXCEEDS_PRINCIPAL"
+    end
+
+    liability.principalBalance = AGFCurrency.round((liability.principalBalance or 0) - amount)
     return true, liability:clone()
 end
 
@@ -188,6 +207,7 @@ function AGFLiabilityRegistry:applyPrincipalPaymentCommitted(liabilityId, amount
     if amount <= 0 then return false, "INVALID_AMOUNT" end
     local liability = self:getInternal(liabilityId)
     if liability == nil then return false, "UNKNOWN_LIABILITY" end
+    if not liability:isOpen() then return false, "LIABILITY_NOT_OPEN" end
 
     local applied = AGFCurrency.round(math.min(amount, math.max(0, liability.principalBalance)))
     liability.principalBalance = math.max(0, AGFCurrency.round(liability.principalBalance - applied))

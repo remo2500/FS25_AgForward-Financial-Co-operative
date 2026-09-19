@@ -11,6 +11,11 @@ local function removeLastValue(list, value)
     end
 end
 
+local function isFiniteNumber(value)
+    local number = tonumber(value)
+    return number ~= nil and number == number and number ~= math.huge and number ~= -math.huge
+end
+
 function AGFLedger.new(idService, runtimeState)
     local self = setmetatable({}, AGFLedger_mt)
     self.idService = idService
@@ -56,6 +61,27 @@ function AGFLedger:validateTransaction(transaction, pendingIds)
     if transaction == nil or transaction.id == nil or transaction.farmId == nil then
         return false, "INVALID_TRANSACTION"
     end
+
+    local farmId = tonumber(transaction.farmId)
+    if farmId == nil or farmId < 1 or farmId ~= math.floor(farmId) then
+        return false, "INVALID_TRANSACTION_FARM"
+    end
+
+    if transaction.transactionType == nil or transaction.transactionType == "" then
+        return false, "INVALID_TRANSACTION_TYPE"
+    end
+
+    if not isFiniteNumber(transaction.amount)
+        or not isFiniteNumber(transaction.principal)
+        or not isFiniteNumber(transaction.interest)
+        or not isFiniteNumber(transaction.fees) then
+        return false, "INVALID_TRANSACTION_AMOUNT"
+    end
+
+    if tonumber(transaction.principal) < 0 or tonumber(transaction.interest) < 0 or tonumber(transaction.fees) < 0 then
+        return false, "NEGATIVE_TRANSACTION_BREAKDOWN"
+    end
+
     if transaction.isSealed ~= nil and transaction:isSealed() then
         return false, "TRANSACTION_ALREADY_SEALED"
     end
@@ -122,13 +148,22 @@ end
 function AGFLedger:rollbackBatch(transactionIds, internal)
     if not internal then return false, "INTERNAL_ROLLBACK_ONLY" end
     if type(transactionIds) ~= "table" then return false, "INVALID_ROLLBACK" end
+    if #transactionIds == 0 then return true, nil end
+    if #transactionIds > #self.order then return false, "ROLLBACK_NOT_AT_LEDGER_TAIL" end
+
+    -- Validate the entire requested suffix before mutating anything. This keeps
+    -- compensating rollback atomic even if a future caller supplies IDs in the
+    -- wrong order or with a stale ledger view.
+    for offset = 0, #transactionIds - 1 do
+        local requestedIndex = #transactionIds - offset
+        local ledgerIndex = #self.order - offset
+        if self.order[ledgerIndex] ~= transactionIds[requestedIndex] then
+            return false, "ROLLBACK_NOT_AT_LEDGER_TAIL"
+        end
+    end
 
     for index = #transactionIds, 1, -1 do
         local id = transactionIds[index]
-        if self.order[#self.order] ~= id then
-            return false, "ROLLBACK_NOT_AT_LEDGER_TAIL"
-        end
-
         local transaction = self.transactions[id]
         if transaction ~= nil then
             removeLastValue(self.byFarm[transaction.farmId], id)
