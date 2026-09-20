@@ -57,7 +57,12 @@ local vm = AGFNativeUIViewModelService.build({
         {
             id = "AGF-LIAB-EQ",
             productType = AGFProductType.EQUIPMENT_FINANCE,
+            assetId = "ASSET-EQ",
             principalBalance = 200000,
+            accruedInterest = 1500,
+            accruedFees = 0,
+            scheduledPayment = 18000,
+            interestRate = 0.0685,
             status = "active"
         }
     },
@@ -135,6 +140,8 @@ assertEqual(vm.obligations[1].amountDue, 18000, "obligation amount")
 assertEqual(#vm.assetFinance, 1, "equipment/project finance row count")
 assertEqual(vm.assetFinance[1].displayName, "X9 Combine", "asset finance display name")
 assertEqual(vm.assetFinance[1].assetValue, 420000, "asset finance value")
+assertEqual(vm.assetFinance[1].outstanding, 201500, "asset finance outstanding")
+assertEqual(vm.assetFinance[1].scheduledPayment, 18000, "asset finance payment")
 assertEqual(vm.assetFinance[1].lienCount, 1, "asset finance lien count")
 
 assertEqual(#vm.landLeases, 1, "lease row count without land-finance liability")
