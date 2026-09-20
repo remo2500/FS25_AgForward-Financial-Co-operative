@@ -67,5 +67,31 @@
         <text name="agf_ui_placeholder_payments" text="Payment and servicing UI foundation prepared; runtime activation pending."/>
         <text name="agf_ui_placeholder_government" text="Government information is shown only when a supported integration is available."/>
         <text name="agf_ui_placeholder_settings" text="Only player-facing finance preferences will be shown here."/>
+
+        <text name="agf_ui_effectiveLimit" text="Effective Limit"/>
+        <text name="agf_ui_reserved" text="Reserved"/>
+        <text name="agf_ui_utilization" text="Utilization"/>
+        <text name="agf_ui_season" text="Season"/>
+        <text name="agf_ui_asset" text="Asset"/>
+        <text name="agf_ui_outstanding" text="Outstanding"/>
+        <text name="agf_ui_payment" text="Payment"/>
+        <text name="agf_ui_selectedAsset" text="Selected Asset"/>
+        <text name="agf_ui_assetValue" text="Asset Value"/>
+        <text name="agf_ui_liens" text="Liens"/>
+        <text name="agf_ui_linkState" text="Link State"/>
+        <text name="agf_ui_noAssetFinance" text="No financed equipment or projects are currently represented."/>
+        <text name="agf_ui_landAsset" text="Land / Asset"/>
+        <text name="agf_ui_arrangement" text="Arrangement"/>
+        <text name="agf_ui_nextPayment" text="Next Payment"/>
+        <text name="agf_ui_remaining" text="Remaining"/>
+        <text name="agf_ui_noLandLease" text="No AgForward land-finance or lease arrangements are currently represented."/>
+        <text name="agf_ui_arrangement_finance" text="Finance"/>
+        <text name="agf_ui_arrangement_lease" text="Lease"/>
+        <text name="agf_ui_ownership_owned" text="Owned"/>
+        <text name="agf_ui_ownership_leased" text="Leased"/>
+        <text name="agf_ui_account" text="Account"/>
+        <text name="agf_ui_pastDue" text="Past Due"/>
+        <text name="agf_ui_review" text="Review"/>
+        <text name="agf_ui_noServicing" text="No payment or servicing accounts are currently represented."/>
     </texts>
 </l10n>

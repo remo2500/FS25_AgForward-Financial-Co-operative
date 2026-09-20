@@ -26,6 +26,20 @@ AGFNativeMenuFrame.CONTROLS = {
     "facilityDetailBalance",
     "facilityDetailAvailable",
     "facilityDetailRate",
+    "facilityDetailEffectiveLimit",
+    "facilityDetailReserved",
+    "facilityDetailUtilization",
+    "facilityDetailSeason",
+    "assetFinanceList",
+    "noAssetFinanceText",
+    "assetDetailValue",
+    "assetDetailLiens",
+    "assetDetailLinkState",
+    "assetDetailStatus",
+    "landLeaseList",
+    "noLandLeaseText",
+    "servicingList",
+    "noServicingText",
     "reportList"
 }
 
@@ -41,23 +55,25 @@ function AGFNativeMenuFrame.new(i18n, messageCenter)
     self.viewModel = nil
     self.currentSubPage = 1
     self.selectedFacilityIndex = 1
+    self.selectedAssetFinanceIndex = 1
     return self
 end
 
 function AGFNativeMenuFrame:initialize()
     AGFNativeMenuFrame:superClass().initialize(self)
 
-    if self.obligationList ~= nil then
-        self.obligationList:setDataSource(self)
-        self.obligationList:setDelegate(self)
-    end
-    if self.facilityList ~= nil then
-        self.facilityList:setDataSource(self)
-        self.facilityList:setDelegate(self)
-    end
-    if self.reportList ~= nil then
-        self.reportList:setDataSource(self)
-        self.reportList:setDelegate(self)
+    for _, list in ipairs({
+        self.obligationList,
+        self.facilityList,
+        self.assetFinanceList,
+        self.landLeaseList,
+        self.servicingList,
+        self.reportList
+    }) do
+        if list ~= nil then
+            list:setDataSource(self)
+            list:setDelegate(self)
+        end
     end
 
     self:setSubPage(1)
@@ -102,10 +118,24 @@ end
 
 function AGFNativeMenuFrame:localize(key, fallback)
     if key ~= nil and self.i18n ~= nil and self.i18n.getText ~= nil then
-        local text = self.i18n:getText(key)
-        if text ~= nil and text ~= key then return text end
+        local value = self.i18n:getText(key)
+        if value ~= nil and value ~= key then return value end
     end
     return fallback or key or ""
+end
+
+function AGFNativeMenuFrame:formatDue(row)
+    if row == nil then return "—" end
+    local date = row.nextPayment
+    if date == nil and row.dueYear ~= nil and row.duePeriod ~= nil then
+        date = string.format("%s / P%s", tostring(row.dueYear), tostring(row.duePeriod))
+    end
+    if date == nil then return "—" end
+    local amount = tonumber(row.nextPaymentAmount)
+    if amount ~= nil and amount > 0 then
+        return string.format("%s  %s", date, self:formatMoney(amount))
+    end
+    return date
 end
 
 function AGFNativeMenuFrame:setSubPage(index)
@@ -121,10 +151,7 @@ function AGFNativeMenuFrame:setSubPage(index)
     end
 end
 
-function AGFNativeMenuFrame:updateSubCategoryPages(state)
-    self:setSubPage(state)
-end
-
+function AGFNativeMenuFrame:updateSubCategoryPages(state) self:setSubPage(state) end
 function AGFNativeMenuFrame:onClickOverview() self:setSubPage(1) end
 function AGFNativeMenuFrame:onClickBanking() self:setSubPage(2) end
 function AGFNativeMenuFrame:onClickAssetFinance() self:setSubPage(3) end
@@ -150,35 +177,46 @@ function AGFNativeMenuFrame:refresh()
     setText(self.overviewDebtAssetsValue, self:formatPercent(overview.debtToAssets))
     setText(self.overviewDataQualityValue, overview.dataQuality or "—")
 
-    local facilities = vm.facilities or {}
-    local obligations = vm.obligations or {}
-
-    if self.noFacilitiesText ~= nil then self.noFacilitiesText:setVisible(#facilities == 0) end
-    if self.facilityList ~= nil then
-        self.facilityList:setVisible(#facilities > 0)
-        self.facilityList:reloadData()
+    local listDefinitions = {
+        {list = self.facilityList, empty = self.noFacilitiesText, rows = vm.facilities},
+        {list = self.obligationList, empty = self.noObligationsText, rows = vm.obligations},
+        {list = self.assetFinanceList, empty = self.noAssetFinanceText, rows = vm.assetFinance},
+        {list = self.landLeaseList, empty = self.noLandLeaseText, rows = vm.landLeases},
+        {list = self.servicingList, empty = self.noServicingText, rows = vm.servicing}
+    }
+    for _, definition in ipairs(listDefinitions) do
+        local rows = definition.rows or {}
+        if definition.empty ~= nil then definition.empty:setVisible(#rows == 0) end
+        if definition.list ~= nil then
+            definition.list:setVisible(#rows > 0)
+            definition.list:reloadData()
+        end
     end
-
-    if self.noObligationsText ~= nil then self.noObligationsText:setVisible(#obligations == 0) end
-    if self.obligationList ~= nil then
-        self.obligationList:setVisible(#obligations > 0)
-        self.obligationList:reloadData()
-    end
-
     if self.reportList ~= nil then self.reportList:reloadData() end
 
-    if #facilities == 0 then
+    if #(vm.facilities or {}) == 0 then
         self.selectedFacilityIndex = 0
-    elseif self.selectedFacilityIndex < 1 or self.selectedFacilityIndex > #facilities then
+    elseif self.selectedFacilityIndex < 1 or self.selectedFacilityIndex > #(vm.facilities or {}) then
         self.selectedFacilityIndex = 1
     end
+
+    if #(vm.assetFinance or {}) == 0 then
+        self.selectedAssetFinanceIndex = 0
+    elseif self.selectedAssetFinanceIndex < 1 or self.selectedAssetFinanceIndex > #(vm.assetFinance or {}) then
+        self.selectedAssetFinanceIndex = 1
+    end
+
     self:updateSelectedFacility()
+    self:updateSelectedAssetFinance()
 end
 
 function AGFNativeMenuFrame:getNumberOfItemsInSection(list, section)
     if self.viewModel == nil then return 0 end
     if list == self.facilityList then return #(self.viewModel.facilities or {}) end
     if list == self.obligationList then return #(self.viewModel.obligations or {}) end
+    if list == self.assetFinanceList then return #(self.viewModel.assetFinance or {}) end
+    if list == self.landLeaseList then return #(self.viewModel.landLeases or {}) end
+    if list == self.servicingList then return #(self.viewModel.servicing or {}) end
     if list == self.reportList then return #(self.viewModel.reports or {}) end
     return 0
 end
@@ -212,6 +250,42 @@ function AGFNativeMenuFrame:populateCellForItemInSection(list, section, index, c
         return
     end
 
+    if list == self.assetFinanceList then
+        local row = (self.viewModel.assetFinance or {})[index]
+        if row == nil then return end
+        setText(cell:getDescendantByName("assetText"), row.displayName)
+        setText(cell:getDescendantByName("typeText"), self:localize(row.productKey, row.productType))
+        setText(cell:getDescendantByName("outstandingText"), self:formatMoney(row.outstanding))
+        setText(cell:getDescendantByName("paymentText"), self:formatMoney(row.scheduledPayment))
+        setText(cell:getDescendantByName("rateText"), self:formatRate(row.interestRate))
+        setText(cell:getDescendantByName("statusText"), row.status)
+        return
+    end
+
+    if list == self.landLeaseList then
+        local row = (self.viewModel.landLeases or {})[index]
+        if row == nil then return end
+        setText(cell:getDescendantByName("assetText"), row.displayName)
+        setText(cell:getDescendantByName("arrangementText"), self:localize(row.arrangementKey, row.arrangement))
+        setText(cell:getDescendantByName("amountText"), self:formatMoney(row.amount))
+        setText(cell:getDescendantByName("nextPaymentText"), row.nextPayment or "—")
+        setText(cell:getDescendantByName("remainingText"), tostring(row.remaining or 0))
+        setText(cell:getDescendantByName("statusText"), row.status)
+        return
+    end
+
+    if list == self.servicingList then
+        local row = (self.viewModel.servicing or {})[index]
+        if row == nil then return end
+        setText(cell:getDescendantByName("accountText"), self:localize(row.accountKey, row.accountName))
+        setText(cell:getDescendantByName("statusText"), row.status)
+        setText(cell:getDescendantByName("nextPaymentText"), self:formatDue(row))
+        setText(cell:getDescendantByName("pastDueText"), self:formatMoney(row.pastDue))
+        local reviewText = row.reviewRequired and string.format("%d", row.reviewCount or 0) or "—"
+        setText(cell:getDescendantByName("reviewText"), reviewText)
+        return
+    end
+
     if list == self.reportList then
         local row = (self.viewModel.reports or {})[index]
         if row == nil then return end
@@ -224,6 +298,9 @@ function AGFNativeMenuFrame:onListSelectionChanged(list, section, index)
     if list == self.facilityList then
         self.selectedFacilityIndex = index
         self:updateSelectedFacility()
+    elseif list == self.assetFinanceList then
+        self.selectedAssetFinanceIndex = index
+        self:updateSelectedAssetFinance()
     end
 end
 
@@ -235,6 +312,10 @@ function AGFNativeMenuFrame:updateSelectedFacility()
         setText(self.facilityDetailBalance, "—")
         setText(self.facilityDetailAvailable, "—")
         setText(self.facilityDetailRate, "—")
+        setText(self.facilityDetailEffectiveLimit, "—")
+        setText(self.facilityDetailReserved, "—")
+        setText(self.facilityDetailUtilization, "—")
+        setText(self.facilityDetailSeason, "—")
         return
     end
 
@@ -242,4 +323,24 @@ function AGFNativeMenuFrame:updateSelectedFacility()
     setText(self.facilityDetailBalance, self:formatMoney(row.balance))
     setText(self.facilityDetailAvailable, self:formatMoney(row.available))
     setText(self.facilityDetailRate, self:formatRate(row.interestRate))
+    setText(self.facilityDetailEffectiveLimit, self:formatMoney(row.effectiveLimit))
+    setText(self.facilityDetailReserved, self:formatMoney(row.reservedAmount))
+    setText(self.facilityDetailUtilization, self:formatPercent(row.utilization))
+    setText(self.facilityDetailSeason, row.seasonState or "—")
+end
+
+function AGFNativeMenuFrame:updateSelectedAssetFinance()
+    local rows = self.viewModel ~= nil and self.viewModel.assetFinance or {}
+    local row = rows ~= nil and rows[self.selectedAssetFinanceIndex] or nil
+    if row == nil then
+        setText(self.assetDetailValue, "—")
+        setText(self.assetDetailLiens, "—")
+        setText(self.assetDetailLinkState, "—")
+        setText(self.assetDetailStatus, "—")
+        return
+    end
+    setText(self.assetDetailValue, self:formatMoney(row.assetValue))
+    setText(self.assetDetailLiens, tostring(row.lienCount or 0))
+    setText(self.assetDetailLinkState, tostring(row.linkState or "unknown"))
+    setText(self.assetDetailStatus, tostring(row.status or ""))
 end

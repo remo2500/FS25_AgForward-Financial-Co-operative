@@ -66,6 +66,17 @@ REQUIRED_IDS = {
     "obligationList",
     "facilityList",
     "reportList",
+    "facilityDetailEffectiveLimit",
+    "facilityDetailReserved",
+    "facilityDetailUtilization",
+    "facilityDetailSeason",
+    "assetFinanceList",
+    "assetDetailValue",
+    "assetDetailLiens",
+    "assetDetailLinkState",
+    "assetDetailStatus",
+    "landLeaseList",
+    "servicingList",
 }
 
 

@@ -63,6 +63,46 @@ The first layout contains:
 
 This is the natural home for the General Operating Line and Crop Input Line.
 
+### Asset Finance
+
+The read-only asset-finance page now contains:
+
+- financed equipment/project list;
+- asset name;
+- finance product;
+- outstanding balance;
+- scheduled payment;
+- interest rate;
+- servicing status;
+- selected-asset value;
+- lien count;
+- stable-link state.
+
+### Land
+
+The land page now combines:
+
+- land-finance arrangements;
+- economic leases;
+- periodic rent or outstanding finance amount;
+- next payment;
+- remaining term/periods;
+- status.
+
+This representation intentionally keeps financed ownership and lease access distinct.
+
+### Payments
+
+The payment/servicing page now contains:
+
+- every represented open liability;
+- account status;
+- next scheduled payment;
+- past-due amount;
+- servicing-review count.
+
+Rows with higher servicing severity sort first in the pure view model.
+
 ### Reports
 
 The first layout contains native-style rows for:
@@ -76,7 +116,9 @@ The first layout contains native-style rows for:
 
 ### Remaining areas
 
-Assets, Land, Payments, Government and Settings currently have native page containers and placeholder text only. Their underlying finance models already exist in varying degrees and will be bound incrementally.
+Government and Settings remain placeholder containers. Report rows are present but report-drilldown frames are not yet built.
+
+The Credit page now also exposes CILOC-specific effective limit, reservations, utilization and seasonal state in the selected-facility detail area when the integrated CILOC review is available.
 
 ## Native-style enforcement
 

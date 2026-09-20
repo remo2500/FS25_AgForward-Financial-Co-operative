@@ -115,26 +115,102 @@
                     <Text profile="agf_nativeMetricValueWide" id="facilityDetailProduct" position="310px -10px"/>
                     <Text profile="agf_nativeMetricLabel" position="20px -48px" text="$l10n_agf_ui_balance"/>
                     <Text profile="agf_nativeMetricValueWide" id="facilityDetailBalance" position="310px -48px"/>
+                    <Text profile="agf_nativeMetricLabel" position="20px -86px" text="$l10n_agf_ui_effectiveLimit"/>
+                    <Text profile="agf_nativeMetricValueWide" id="facilityDetailEffectiveLimit" position="310px -86px"/>
+                    <Text profile="agf_nativeMetricLabel" position="20px -124px" text="$l10n_agf_ui_reserved"/>
+                    <Text profile="agf_nativeMetricValueWide" id="facilityDetailReserved" position="310px -124px"/>
+
                     <Text profile="agf_nativeMetricLabel" position="650px -10px" text="$l10n_agf_ui_available"/>
                     <Text profile="agf_nativeMetricValueWide" id="facilityDetailAvailable" position="940px -10px"/>
                     <Text profile="agf_nativeMetricLabel" position="650px -48px" text="$l10n_agf_ui_rate"/>
                     <Text profile="agf_nativeMetricValueWide" id="facilityDetailRate" position="940px -48px"/>
+                    <Text profile="agf_nativeMetricLabel" position="650px -86px" text="$l10n_agf_ui_utilization"/>
+                    <Text profile="agf_nativeMetricValueWide" id="facilityDetailUtilization" position="940px -86px"/>
+                    <Text profile="agf_nativeMetricLabel" position="650px -124px" text="$l10n_agf_ui_season"/>
+                    <Text profile="agf_nativeMetricValueWide" id="facilityDetailSeason" position="940px -124px"/>
                 </GuiElement>
             </GuiElement>
 
             <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="subCategoryPages[3]">
                 <Text profile="agf_nativeSectionHeader" position="-60px -100px" text="$l10n_agf_assetFinance"/>
-                <Text profile="agf_nativeEmptyText" position="-40px -155px" text="$l10n_agf_ui_placeholder_assetFinance"/>
+                <GuiElement profile="fs25_statisticsHeaderBox" position="-60px -145px">
+                    <Text profile="agf_nativeColumnHeader" position="15px 0px" size="420px 34px" text="$l10n_agf_ui_asset"/>
+                    <Text profile="agf_nativeColumnHeader" position="455px 0px" size="220px 34px" text="$l10n_agf_ui_type"/>
+                    <Text profile="agf_nativeColumnHeader" position="700px 0px" size="230px 34px" text="$l10n_agf_ui_outstanding"/>
+                    <Text profile="agf_nativeColumnHeader" position="955px 0px" size="220px 34px" text="$l10n_agf_ui_payment"/>
+                    <Text profile="agf_nativeColumnHeader" position="1200px 0px" size="120px 34px" text="$l10n_agf_ui_rate"/>
+                    <Text profile="agf_nativeColumnHeader" position="1340px 0px" size="140px 34px" text="$l10n_agf_ui_status"/>
+                </GuiElement>
+                <SmoothList profile="agf_nativeFinanceList" id="assetFinanceList" name="assetFinanceList" position="-60px -185px" size="1500px 330px" onSelectionChanged="onListSelectionChanged">
+                    <ListItem profile="agf_nativeFinanceListItem" name="assetFinanceRow">
+                        <ThreePartBitmap profile="agf_nativeFinanceListItemBg" name="alternating"/>
+                        <Text profile="agf_nativeRowText" name="assetText" position="15px 0px" size="420px 34px"/>
+                        <Text profile="agf_nativeRowText" name="typeText" position="455px 0px" size="220px 34px"/>
+                        <Text profile="agf_nativeRowTextRight" name="outstandingText" position="700px 0px" size="230px 34px"/>
+                        <Text profile="agf_nativeRowTextRight" name="paymentText" position="955px 0px" size="220px 34px"/>
+                        <Text profile="agf_nativeRowTextRight" name="rateText" position="1200px 0px" size="120px 34px"/>
+                        <Text profile="agf_nativeRowText" name="statusText" position="1340px 0px" size="140px 34px"/>
+                    </ListItem>
+                </SmoothList>
+                <Text profile="agf_nativeEmptyText" id="noAssetFinanceText" position="-40px -230px" text="$l10n_agf_ui_noAssetFinance"/>
+
+                <Text profile="agf_nativeSectionHeader" position="-60px -555px" text="$l10n_agf_ui_selectedAsset"/>
+                <GuiElement profile="agf_nativeMetricPanel" position="-60px -600px">
+                    <Text profile="agf_nativeMetricLabel" position="20px -10px" text="$l10n_agf_ui_assetValue"/>
+                    <Text profile="agf_nativeMetricValueWide" id="assetDetailValue" position="310px -10px"/>
+                    <Text profile="agf_nativeMetricLabel" position="20px -48px" text="$l10n_agf_ui_liens"/>
+                    <Text profile="agf_nativeMetricValueWide" id="assetDetailLiens" position="310px -48px"/>
+                    <Text profile="agf_nativeMetricLabel" position="650px -10px" text="$l10n_agf_ui_linkState"/>
+                    <Text profile="agf_nativeMetricValueWide" id="assetDetailLinkState" position="940px -10px"/>
+                    <Text profile="agf_nativeMetricLabel" position="650px -48px" text="$l10n_agf_ui_status"/>
+                    <Text profile="agf_nativeMetricValueWide" id="assetDetailStatus" position="940px -48px"/>
+                </GuiElement>
             </GuiElement>
 
             <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="subCategoryPages[4]">
                 <Text profile="agf_nativeSectionHeader" position="-60px -100px" text="$l10n_agf_landLeases"/>
-                <Text profile="agf_nativeEmptyText" position="-40px -155px" text="$l10n_agf_ui_placeholder_land"/>
+                <GuiElement profile="fs25_statisticsHeaderBox" position="-60px -145px">
+                    <Text profile="agf_nativeColumnHeader" position="15px 0px" size="440px 34px" text="$l10n_agf_ui_landAsset"/>
+                    <Text profile="agf_nativeColumnHeader" position="475px 0px" size="230px 34px" text="$l10n_agf_ui_arrangement"/>
+                    <Text profile="agf_nativeColumnHeader" position="730px 0px" size="230px 34px" text="$l10n_agf_ui_amount"/>
+                    <Text profile="agf_nativeColumnHeader" position="985px 0px" size="220px 34px" text="$l10n_agf_ui_nextPayment"/>
+                    <Text profile="agf_nativeColumnHeader" position="1230px 0px" size="120px 34px" text="$l10n_agf_ui_remaining"/>
+                    <Text profile="agf_nativeColumnHeader" position="1370px 0px" size="110px 34px" text="$l10n_agf_ui_status"/>
+                </GuiElement>
+                <SmoothList profile="agf_nativeFinanceList" id="landLeaseList" name="landLeaseList" position="-60px -185px" size="1500px 480px" onSelectionChanged="onListSelectionChanged">
+                    <ListItem profile="agf_nativeFinanceListItem" name="landLeaseRow">
+                        <ThreePartBitmap profile="agf_nativeFinanceListItemBg" name="alternating"/>
+                        <Text profile="agf_nativeRowText" name="assetText" position="15px 0px" size="440px 34px"/>
+                        <Text profile="agf_nativeRowText" name="arrangementText" position="475px 0px" size="230px 34px"/>
+                        <Text profile="agf_nativeRowTextRight" name="amountText" position="730px 0px" size="230px 34px"/>
+                        <Text profile="agf_nativeRowText" name="nextPaymentText" position="985px 0px" size="220px 34px"/>
+                        <Text profile="agf_nativeRowTextRight" name="remainingText" position="1230px 0px" size="120px 34px"/>
+                        <Text profile="agf_nativeRowText" name="statusText" position="1370px 0px" size="110px 34px"/>
+                    </ListItem>
+                </SmoothList>
+                <Text profile="agf_nativeEmptyText" id="noLandLeaseText" position="-40px -230px" text="$l10n_agf_ui_noLandLease"/>
             </GuiElement>
 
             <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="subCategoryPages[5]">
                 <Text profile="agf_nativeSectionHeader" position="-60px -100px" text="$l10n_agf_payments"/>
-                <Text profile="agf_nativeEmptyText" position="-40px -155px" text="$l10n_agf_ui_placeholder_payments"/>
+                <GuiElement profile="fs25_statisticsHeaderBox" position="-60px -145px">
+                    <Text profile="agf_nativeColumnHeader" position="15px 0px" size="420px 34px" text="$l10n_agf_ui_account"/>
+                    <Text profile="agf_nativeColumnHeader" position="455px 0px" size="200px 34px" text="$l10n_agf_ui_status"/>
+                    <Text profile="agf_nativeColumnHeader" position="680px 0px" size="280px 34px" text="$l10n_agf_ui_nextPayment"/>
+                    <Text profile="agf_nativeColumnHeader" position="985px 0px" size="220px 34px" text="$l10n_agf_ui_pastDue"/>
+                    <Text profile="agf_nativeColumnHeader" position="1230px 0px" size="250px 34px" text="$l10n_agf_ui_review"/>
+                </GuiElement>
+                <SmoothList profile="agf_nativeFinanceList" id="servicingList" name="servicingList" position="-60px -185px" size="1500px 480px" onSelectionChanged="onListSelectionChanged">
+                    <ListItem profile="agf_nativeFinanceListItem" name="servicingRow">
+                        <ThreePartBitmap profile="agf_nativeFinanceListItemBg" name="alternating"/>
+                        <Text profile="agf_nativeRowText" name="accountText" position="15px 0px" size="420px 34px"/>
+                        <Text profile="agf_nativeRowText" name="statusText" position="455px 0px" size="200px 34px"/>
+                        <Text profile="agf_nativeRowText" name="nextPaymentText" position="680px 0px" size="280px 34px"/>
+                        <Text profile="agf_nativeRowTextRight" name="pastDueText" position="985px 0px" size="220px 34px"/>
+                        <Text profile="agf_nativeRowText" name="reviewText" position="1230px 0px" size="250px 34px"/>
+                    </ListItem>
+                </SmoothList>
+                <Text profile="agf_nativeEmptyText" id="noServicingText" position="-40px -230px" text="$l10n_agf_ui_noServicing"/>
             </GuiElement>
 
             <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="subCategoryPages[6]">
