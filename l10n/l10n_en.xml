@@ -10,5 +10,100 @@
         <text name="agf_payments" text="Payments &amp; Obligations"/>
         <text name="agf_reports" text="Reports"/>
         <text name="agf_cropInputLine" text="Crop Input Line of Credit"/>
+
+        <text name="agf_ui_overview" text="Overview"/>
+        <text name="agf_ui_bankingCredit" text="Credit"/>
+        <text name="agf_ui_assetFinance" text="Assets"/>
+        <text name="agf_ui_landLeases" text="Land"/>
+        <text name="agf_ui_paymentsObligations" text="Payments"/>
+        <text name="agf_ui_reports" text="Reports"/>
+        <text name="agf_ui_government" text="Government"/>
+        <text name="agf_ui_settings" text="Settings"/>
+
+        <text name="agf_ui_financialPosition" text="Financial Position"/>
+        <text name="agf_ui_creditFacilities" text="Credit Facilities"/>
+        <text name="agf_ui_upcomingObligations" text="Upcoming Obligations"/>
+        <text name="agf_ui_selectedFacility" text="Selected Facility"/>
+        <text name="agf_ui_availableReports" text="Available Reports"/>
+        <text name="agf_ui_runtimeStatus" text="Runtime Status"/>
+        <text name="agf_ui_cash" text="Cash"/>
+        <text name="agf_ui_equity" text="Represented Equity"/>
+        <text name="agf_ui_totalDebt" text="Total Debt"/>
+        <text name="agf_ui_workingCapital" text="Working Capital"/>
+        <text name="agf_ui_dscr" text="DSCR"/>
+        <text name="agf_ui_fixedChargeCoverage" text="Fixed-Charge Coverage"/>
+        <text name="agf_ui_debtAssets" text="Debt / Assets"/>
+        <text name="agf_ui_dataQuality" text="Data Quality"/>
+        <text name="agf_ui_product" text="Product"/>
+        <text name="agf_ui_balance" text="Balance"/>
+        <text name="agf_ui_limit" text="Limit"/>
+        <text name="agf_ui_available" text="Available"/>
+        <text name="agf_ui_rate" text="Rate"/>
+        <text name="agf_ui_status" text="Status"/>
+        <text name="agf_ui_due" text="Due"/>
+        <text name="agf_ui_type" text="Type"/>
+        <text name="agf_ui_amount" text="Amount"/>
+        <text name="agf_ui_report" text="Report"/>
+        <text name="agf_ui_description" text="Description"/>
+        <text name="agf_ui_noFacilities" text="No AgForward credit facilities are currently active."/>
+        <text name="agf_ui_noObligations" text="No scheduled obligations are currently available."/>
+        <text name="agf_ui_runtimePending" text="Runtime integration pending"/>
+        <text name="agf_ui_readOnlyDevelopment" text="Read-only development view"/>
+        <text name="agf_ui_product_operatingLine" text="Operating Line"/>
+        <text name="agf_ui_product_cropInputLine" text="Crop Input Line"/>
+        <text name="agf_ui_product_termLoan" text="Term Loan"/>
+        <text name="agf_ui_product_equipmentFinance" text="Equipment Finance"/>
+        <text name="agf_ui_product_projectFinance" text="Project Finance"/>
+        <text name="agf_ui_product_landFinance" text="Land Finance"/>
+        <text name="agf_ui_product_landLease" text="Land Lease"/>
+        <text name="agf_ui_report_financialPosition" text="Financial Position"/>
+        <text name="agf_ui_report_debtSchedule" text="Debt Schedule"/>
+        <text name="agf_ui_report_history" text="Financial History"/>
+        <text name="agf_ui_report_cropInputs" text="Crop Input Source of Funds"/>
+        <text name="agf_ui_report_assetsLiens" text="Assets &amp; Liens"/>
+        <text name="agf_ui_report_leases" text="Lease Commitments"/>
+        <text name="agf_ui_placeholder_assetFinance" text="Asset-finance UI foundation prepared; runtime activation pending."/>
+        <text name="agf_ui_placeholder_land" text="Land-finance and leasing UI foundation prepared; runtime activation pending."/>
+        <text name="agf_ui_placeholder_payments" text="Payment and servicing UI foundation prepared; runtime activation pending."/>
+        <text name="agf_ui_placeholder_government" text="Government information is shown only when a supported integration is available."/>
+        <text name="agf_ui_placeholder_settings" text="Only player-facing finance preferences will be shown here."/>
+
+        <text name="agf_ui_effectiveLimit" text="Effective Limit"/>
+        <text name="agf_ui_reserved" text="Reserved"/>
+        <text name="agf_ui_utilization" text="Utilization"/>
+        <text name="agf_ui_season" text="Season"/>
+        <text name="agf_ui_asset" text="Asset"/>
+        <text name="agf_ui_outstanding" text="Outstanding"/>
+        <text name="agf_ui_payment" text="Payment"/>
+        <text name="agf_ui_selectedAsset" text="Selected Asset"/>
+        <text name="agf_ui_assetValue" text="Asset Value"/>
+        <text name="agf_ui_liens" text="Liens"/>
+        <text name="agf_ui_linkState" text="Link State"/>
+        <text name="agf_ui_noAssetFinance" text="No financed equipment or projects are currently represented."/>
+        <text name="agf_ui_landAsset" text="Land / Asset"/>
+        <text name="agf_ui_arrangement" text="Arrangement"/>
+        <text name="agf_ui_nextPayment" text="Next Payment"/>
+        <text name="agf_ui_remaining" text="Remaining"/>
+        <text name="agf_ui_noLandLease" text="No AgForward land-finance or lease arrangements are currently represented."/>
+        <text name="agf_ui_arrangement_finance" text="Finance"/>
+        <text name="agf_ui_arrangement_lease" text="Lease"/>
+        <text name="agf_ui_ownership_owned" text="Owned"/>
+        <text name="agf_ui_ownership_leased" text="Leased"/>
+        <text name="agf_ui_account" text="Account"/>
+        <text name="agf_ui_pastDue" text="Past Due"/>
+        <text name="agf_ui_review" text="Review"/>
+        <text name="agf_ui_noServicing" text="No payment or servicing accounts are currently represented."/>
+
+        <text name="agf_ui_action_open" text="Open"/>
+        <text name="agf_ui_action_apply" text="Apply"/>
+        <text name="agf_ui_action_draw" text="Draw"/>
+        <text name="agf_ui_action_repay" text="Repay"/>
+        <text name="agf_ui_action_pay" text="Make Payment"/>
+        <text name="agf_ui_action_payoff" text="Pay Off"/>
+        <text name="agf_ui_action_cure" text="Cure Account"/>
+        <text name="agf_ui_action_schedule" text="View Schedule"/>
+        <text name="agf_ui_action_report" text="Open Report"/>
+        <text name="agf_ui_action_policy" text="Funding Policy"/>
+        <text name="agf_ui_action_details" text="Details"/>
     </texts>
 </l10n>

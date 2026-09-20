@@ -10,12 +10,29 @@ local function isFiniteNumber(value)
     return number ~= nil and number == number and number ~= math.huge and number ~= -math.huge
 end
 
+local function isWholeNonNegativeNumber(value)
+    local number = tonumber(value)
+    return isFiniteNumber(number) and number >= 0 and number == math.floor(number)
+end
+
 local function buildValueSet(source)
     local result = {}
     for _, value in pairs(source or {}) do
         result[value] = true
     end
     return result
+end
+
+local function periodIsValid(value)
+    if value == nil then return true end
+    local number = tonumber(value)
+    return number ~= nil and number == math.floor(number) and number >= 1 and number <= 12
+end
+
+local function yearIsValid(value)
+    if value == nil then return true end
+    local number = tonumber(value)
+    return number ~= nil and number == math.floor(number) and number >= 1
 end
 
 function AGFIntegrityService.new(services)
@@ -45,6 +62,7 @@ function AGFIntegrityService:run(schemaVersion)
     local fundingSources = buildValueSet(AGFFundingSource)
     local expenseCategories = buildValueSet(AGFExpenseCategory)
     local productTypes = buildValueSet(AGFProductType)
+    local liabilityStatuses = buildValueSet(AGFLiabilityStatus)
 
     local liabilities = self.services:get("liabilities")
     local ledger = self.services:get("ledger")
@@ -75,7 +93,11 @@ function AGFIntegrityService:run(schemaVersion)
                 addError("LIABILITY_PRODUCT_UNKNOWN", "Liability " .. tostring(liability.id) .. " has unknown product type " .. tostring(liability.productType))
             end
 
-            for fieldName, value in pairs({
+            if not liabilityStatuses[liability.status] then
+                addError("LIABILITY_STATUS_UNKNOWN", "Liability " .. tostring(liability.id) .. " has unknown status " .. tostring(liability.status))
+            end
+
+            local monetaryFields = {
                 principalBalance = liability.principalBalance,
                 originalPrincipal = liability.originalPrincipal,
                 creditLimit = liability.creditLimit,
@@ -84,17 +106,33 @@ function AGFIntegrityService:run(schemaVersion)
                 interestRate = liability.interestRate,
                 scheduledPayment = liability.scheduledPayment,
                 balloonAmount = liability.balloonAmount
-            }) do
+            }
+
+            for fieldName, value in pairs(monetaryFields) do
                 if not isFiniteNumber(value) then
                     addError("LIABILITY_NUMBER_INVALID", string.format("Liability %s has invalid %s", tostring(liability.id), fieldName))
+                elseif tonumber(value) < -0.0000001 then
+                    addError("LIABILITY_NEGATIVE_VALUE", string.format("Liability %s has negative %s", tostring(liability.id), fieldName))
                 end
             end
 
-            if (tonumber(liability.principalBalance) or 0) < -0.005 or (tonumber(liability.creditLimit) or 0) < -0.005 then
-                addError("LIABILITY_NEGATIVE_BALANCE", "Liability " .. tostring(liability.id) .. " has a negative principal/limit")
+            if not isWholeNonNegativeNumber(liability.termMonths or 0)
+                or not isWholeNonNegativeNumber(liability.remainingTermMonths or 0) then
+                addError("LIABILITY_TERM_INVALID", "Liability " .. tostring(liability.id) .. " has an invalid term")
+            elseif (tonumber(liability.termMonths) or 0) > 0
+                and (tonumber(liability.remainingTermMonths) or 0) > (tonumber(liability.termMonths) or 0) then
+                addError("LIABILITY_REMAINING_TERM_EXCEEDS_ORIGINAL", "Liability " .. tostring(liability.id) .. " has remaining term above original term")
             end
 
-            if liability.isRevolving ~= nil and liability:isRevolving() and (tonumber(liability.principalBalance) or 0) > (tonumber(liability.creditLimit) or 0) + 0.005 then
+            if not yearIsValid(liability.startYear) or not yearIsValid(liability.nextPaymentYear) then
+                addError("LIABILITY_YEAR_INVALID", "Liability " .. tostring(liability.id) .. " has an invalid year marker")
+            end
+            if not periodIsValid(liability.startPeriod) or not periodIsValid(liability.nextPaymentPeriod) then
+                addError("LIABILITY_PERIOD_INVALID", "Liability " .. tostring(liability.id) .. " has an invalid period marker")
+            end
+
+            if liability.isRevolving ~= nil and liability:isRevolving()
+                and (tonumber(liability.principalBalance) or 0) > (tonumber(liability.creditLimit) or 0) + 0.005 then
                 addError("REVOLVING_LIMIT_EXCEEDED", "Liability " .. tostring(liability.id) .. " is above its credit limit")
             end
         end
@@ -123,6 +161,27 @@ function AGFIntegrityService:run(schemaVersion)
 
             if not isFiniteNumber(transaction.amount) or not isFiniteNumber(transaction.principal) or not isFiniteNumber(transaction.interest) or not isFiniteNumber(transaction.fees) then
                 addError("TRANSACTION_NUMBER_INVALID", "Transaction " .. tostring(transaction.id) .. " contains a non-finite amount")
+            end
+
+            for fieldName, value in pairs({
+                principal = transaction.principal,
+                interest = transaction.interest,
+                fees = transaction.fees
+            }) do
+                if isFiniteNumber(value) and tonumber(value) < -0.0000001 then
+                    addError("TRANSACTION_BREAKDOWN_NEGATIVE", string.format("Transaction %s has negative %s component", tostring(transaction.id), fieldName))
+                end
+            end
+
+            if transaction.isSealed ~= nil and not transaction:isSealed() then
+                addError("TRANSACTION_NOT_SEALED", "Transaction " .. tostring(transaction.id) .. " is not sealed in authoritative ledger state")
+            end
+
+            if not yearIsValid(transaction.year) then
+                addError("TRANSACTION_YEAR_INVALID", "Transaction " .. tostring(transaction.id) .. " has an invalid year marker")
+            end
+            if not periodIsValid(transaction.period) then
+                addError("TRANSACTION_PERIOD_INVALID", "Transaction " .. tostring(transaction.id) .. " has an invalid period marker")
             end
 
             if transaction.fundingSource ~= nil and transaction.fundingSource ~= "" and not fundingSources[transaction.fundingSource] then
