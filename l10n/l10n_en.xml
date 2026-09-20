@@ -93,5 +93,17 @@
         <text name="agf_ui_pastDue" text="Past Due"/>
         <text name="agf_ui_review" text="Review"/>
         <text name="agf_ui_noServicing" text="No payment or servicing accounts are currently represented."/>
+
+        <text name="agf_ui_action_open" text="Open"/>
+        <text name="agf_ui_action_apply" text="Apply"/>
+        <text name="agf_ui_action_draw" text="Draw"/>
+        <text name="agf_ui_action_repay" text="Repay"/>
+        <text name="agf_ui_action_pay" text="Make Payment"/>
+        <text name="agf_ui_action_payoff" text="Pay Off"/>
+        <text name="agf_ui_action_cure" text="Cure Account"/>
+        <text name="agf_ui_action_schedule" text="View Schedule"/>
+        <text name="agf_ui_action_report" text="Open Report"/>
+        <text name="agf_ui_action_policy" text="Funding Policy"/>
+        <text name="agf_ui_action_details" text="Details"/>
     </texts>
 </l10n>

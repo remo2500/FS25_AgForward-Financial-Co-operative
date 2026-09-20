@@ -219,3 +219,6 @@ jobs:
 
       - name: Run native UI view-model tests
         run: lua5.1 tests/offline_native_ui_view_model_tests.lua
+
+      - name: Run native UI action-model tests
+        run: lua5.1 tests/offline_native_ui_action_model_tests.lua
