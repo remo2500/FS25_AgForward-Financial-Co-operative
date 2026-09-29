@@ -1,0 +1,408 @@
+name: One-shot RFF RMS conversion
+
+on:
+  push:
+    branches:
+      - rff-rms-integration
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out integration branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Convert RFF donor from ADS to RMS
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f FS25_DM_RealisticFarmFinance_source.zip
+          rm -rf .rff_work rff_rms_patch builds
+          mkdir -p .rff_work
+          unzip -q FS25_DM_RealisticFarmFinance_source.zip -d .rff_work
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path(".rff_work")
+
+          ads = root / "scripts" / "ADSIntegration.lua"
+          rms = root / "scripts" / "RMSIntegration.lua"
+          if not ads.exists():
+              raise SystemExit("ADSIntegration.lua missing from donor")
+
+          s = ads.read_text(encoding="utf-8")
+          s = s.replace("RFF_ADSIntegration", "RFF_RMSIntegration")
+          s = s.replace("spec_AdvancedDamageSystem", "spec_RealisticMechanicalSystems")
+          s = s.replace("FS25_AdvancedDamageSystem", "FS25_RealisticMechanicalSystems")
+          s = s.replace("ads_spec_", "rms_spec_")
+          s = s.replace("Advanced Damage System", "Realistic Mechanical Systems")
+          s = s.replace("ADS owns", "RMS owns")
+          s = s.replace("ADS unavailable or unsupported", "RMS unavailable or unsupported")
+          s = s.replace("ADS inspection and service recorded", "RMS inspection and service recorded")
+          s = s.replace("ADS record skipped", "RMS record skipped")
+          s = s.replace("[RFF dealership] ADS handover", "[RFF dealership] RMS handover")
+          s = s.replace("ADS handover record incomplete", "RMS handover record incomplete")
+          s = s.replace("ADS pre-delivery inspection", "RMS pre-delivery inspection")
+          s = s.replace("ADS public specialization", "RMS public specialization")
+          s = s.replace("by ADS itself", "by RMS itself")
+          s = s.replace("requiring ADS globals", "requiring RMS globals")
+          s = s.replace("Compatibility fallback for ADS builds", "Compatibility fallback for RMS builds")
+          s = s.replace("Claims use the ADS maintenance-log", "Claims use the RMS maintenance-log")
+          s = s.replace("ADS remains authoritative", "RMS remains authoritative")
+          s = s.replace("Read-only fleet diary data. ADS", "Read-only fleet diary data. RMS")
+          s = s.replace(
+              'RFF_RMSIntegration = {}\n',
+              'RFF_RMSIntegration = {}\n'
+              'RFF_RMSIntegration.PROVIDER = "RMS"\n\n'
+              '-- Legacy ads* result/save field names are intentionally retained by RFF callers\n'
+              '-- so existing finance savegames remain readable after changing mechanical provider.\n'
+          )
+
+          old_block = '''function RFF_RMSIntegration:isVehicleSupported(vehicle)
+    if vehicle == nil then return false end
+    local spec = vehicle.spec_RealisticMechanicalSystems
+    if type(spec) == "table" then return spec.isExcludedVehicle ~= true end
+
+    -- Compatibility fallback for RMS builds where the specialization table is not
+    -- visible cross-mod but its registered vehicle functions are.
+    return type(vehicle.getServiceLevel) == "function"
+        and type(vehicle.getConditionLevel) == "function"
+        and type(vehicle.getServicePrice) == "function"
+end
+
+function RFF_RMSIntegration:isAvailable()
+    return g_modIsLoaded ~= nil and g_modIsLoaded["FS25_RealisticMechanicalSystems"] == true
+end'''
+          new_block = '''function RFF_RMSIntegration:isVehicleSupported(vehicle)
+    if vehicle == nil then return false end
+    local spec = vehicle.spec_RealisticMechanicalSystems
+    if type(spec) == "table" then return spec.isExcludedVehicle ~= true end
+
+    -- Cross-mod fallback is accepted only when RMS itself is active. ADS exposes
+    -- several similarly named functions, so this guard prevents false detection.
+    if not self:isAvailable() then return false end
+    return type(vehicle.getServiceLevel) == "function"
+        and type(vehicle.getConditionLevel) == "function"
+        and type(vehicle.getServicePrice) == "function"
+end
+
+function RFF_RMSIntegration:isAvailable()
+    if g_modIsLoaded == nil or g_modIsLoaded["FS25_RealisticMechanicalSystems"] ~= true then
+        return false
+    end
+
+    -- RMS deliberately refuses to initialise beside Advanced Damage System.
+    -- Report RMS unavailable in that conflict state rather than mislabelling ADS
+    -- vehicle functions as RMS data.
+    if g_modIsLoaded["FS25_AdvancedDamageSystem"] == true then
+        return false
+    end
+    return true
+end'''
+          if old_block not in s:
+              raise SystemExit("RMS support/availability conversion anchor not found")
+          s = s.replace(old_block, new_block)
+
+          s = s.replace(
+              "        adsApplied = false,\n        inspectionCompleted",
+              "        rmsApplied = false,\n        adsApplied = false, -- legacy compatibility field\n        inspectionCompleted"
+          )
+          s = s.replace(
+              "        adsApplied = false,\n        lastInspectionDate",
+              "        rmsApplied = false,\n        adsApplied = false, -- legacy compatibility field\n        lastInspectionDate"
+          )
+          s = s.replace(
+              "        adsApplied = false,\n        serviceLevel",
+              "        rmsApplied = false,\n        adsApplied = false, -- legacy compatibility field\n        serviceLevel"
+          )
+          s = s.replace("result.adsApplied = true", "result.rmsApplied = true\n    result.adsApplied = true")
+          s = s.replace(
+              "A full\n-- defectoscopy is required first;",
+              "A complete\n-- inspection is required first;"
+          )
+          s += (
+              "\n\n-- Compatibility alias only; all RFF live reads use RFF_RMSIntegration.\n"
+              "RFF_ADSIntegration = RFF_RMSIntegration\n"
+          )
+          rms.write_text(s, encoding="utf-8", newline="\n")
+          ads.unlink()
+
+          # Convert every live call site to the new provider object.
+          for p in root.rglob("*.lua"):
+              txt = p.read_text(encoding="utf-8")
+              txt2 = txt.replace("RFF_ADSIntegration", "RFF_RMSIntegration")
+              if p.name == "RMSIntegration.lua":
+                  txt2 = txt2.replace(
+                      "RFF_RMSIntegration = RFF_RMSIntegration\n",
+                      "RFF_ADSIntegration = RFF_RMSIntegration\n"
+                  )
+              if txt2 != txt:
+                  p.write_text(txt2, encoding="utf-8", newline="\n")
+
+          # Main loader and console diagnostics.
+          p = root / "scripts" / "Main.lua"
+          s = p.read_text(encoding="utf-8")
+          s = s.replace("scripts/ADSIntegration.lua", "scripts/RMSIntegration.lua")
+          s = s.replace("rffADSAssessment", "rffRMSAssessment")
+          s = s.replace("consoleADSAssessment", "consoleRMSAssessment")
+          s = s.replace(
+              "Inspect ADS condition and RFF return/recovery deductions",
+              "Inspect RMS condition and RFF return/recovery deductions"
+          )
+          s = s.replace("ADS assessment", "RMS assessment")
+          s = s.replace("detected=ADS", "detected=RMS")
+          s = s.replace(" ADS=%s ", " RMS=%s ")
+          s = s.replace(
+              "adsRequired=%s inspection=%.2f repair=%.2f warranty=%s",
+              "rmsRequired=%s inspection=%.2f repair=%.2f warranty=%s"
+          )
+          p.write_text(s, encoding="utf-8", newline="\n")
+
+          # Runtime roadworthiness naming is safe to modernise; legacy saved finance
+          # fields remain untouched.
+          p = root / "scripts" / "VehicleComplianceService.lua"
+          s = p.read_text(encoding="utf-8")
+          s = s.replace("ADS_MINIMUM_CONDITION", "RMS_MINIMUM_CONDITION")
+          s = s.replace("getAdsRoadworthiness", "getRmsRoadworthiness")
+          p.write_text(s, encoding="utf-8", newline="\n")
+
+          script_replacements = {
+              "ADS pre-delivery inspection and service are recorded at handover where supported.":
+                  "RMS pre-delivery inspection and service are recorded at handover where supported.",
+              "ADS unavailable or unsupported": "RMS unavailable or unsupported",
+              "ADS handover record failed; check log": "RMS handover record failed; check log",
+              "ADS Full Defectoscopy": "RMS Complete Inspection",
+              "ADS records show": "RMS records show",
+              "ADS warranty repair": "RMS warranty repair",
+              "ADS evidence": "RMS evidence",
+              "actual ADS inspection and repair prices": "actual RMS inspection and repair prices",
+              "ADS technical-condition": "RMS technical-condition",
+              "ADS dealer repair/service quotation": "RMS dealer repair/service quotation",
+              "ADS vehicles use": "RMS vehicles use",
+              "Non-ADS": "Non-RMS",
+              "where ADS is active": "where RMS is active",
+              "Where ADS is active": "Where RMS is active",
+              "ADS does not become a second fee": "RMS does not become a second fee",
+              "ADS condition": "RMS condition",
+              "ADS/review": "RMS/review",
+              "no compatible ADS system damage recorded": "no compatible RMS system damage recorded",
+              "ADS: %s.": "RMS: %s.",
+              "complete a Full Defectoscopy in ADS": "complete an RMS Complete Inspection",
+              "No ADS evidence recorded": "No RMS evidence recorded",
+          }
+          for p in root.rglob("*.lua"):
+              if p.name == "RMSIntegration.lua":
+                  continue
+              txt = p.read_text(encoding="utf-8")
+              old = txt
+              for a, b in script_replacements.items():
+                  txt = txt.replace(a, b)
+              if txt != old:
+                  p.write_text(txt, encoding="utf-8", newline="\n")
+
+          # Fix a comment whose mixed provider wording can mislead future maintainers.
+          p = root / "scripts" / "AssetFinanceService.lua"
+          s = p.read_text(encoding="utf-8")
+          s = s.replace(
+              "-- RMS vehicles use ADS's own dealer repair/service quotation. Non-RMS",
+              "-- RMS vehicles use RMS's own dealer repair/service quotation. Non-RMS"
+          )
+          p.write_text(s, encoding="utf-8", newline="\n")
+
+          # Keep localisation key names stable, change only visible English values.
+          p = root / "translations" / "translation_en.xml"
+          lines = p.read_text(encoding="utf-8").splitlines()
+          output = []
+          def convert_display(value):
+              value = value.replace("Advanced Damage System", "Realistic Mechanical Systems")
+              value = value.replace("ADS Full Defectoscopy", "RMS Complete Inspection")
+              value = value.replace("Full Defectoscopy", "Complete Inspection")
+              value = re.sub(r"\bADS\b", "RMS", value)
+              return value
+          for line in lines:
+              if "<text " in line and ' text="' in line:
+                  line = re.sub(
+                      r'(\btext=")([^"]*)(")',
+                      lambda m: m.group(1) + convert_display(m.group(2)) + m.group(3),
+                      line,
+                      count=1
+                  )
+              output.append(line)
+          p.write_text("\n".join(output) + "\n", encoding="utf-8")
+
+          # User-facing mod description and version.
+          p = root / "modDesc.xml"
+          s = p.read_text(encoding="utf-8")
+          s = s.replace("<version>1.1.32.5</version>", "<version>1.1.32.7</version>", 1)
+          s = s.replace("Advanced Damage System", "Realistic Mechanical Systems")
+          s = re.sub(r"\bADS\b", "RMS", s)
+          s = s.replace("Full Defectoscopy", "Complete Inspection")
+          s = s.replace(
+              "Traffic Courtesy remains authoritative for detection and RMS consequences",
+              "Traffic Courtesy remains authoritative for collision detection while RFF uses RMS for post-collision mechanical assessment"
+          )
+          s = s.replace(
+              "and RMS outcomes",
+              "and source mechanical outcomes where supplied"
+          )
+          s = s.replace(
+              "without altering Traffic Courtesy collision detection or RMS damage",
+              "without altering Traffic Courtesy collision detection; RFF reads RMS for mechanical follow-up"
+          )
+          s = s.replace(
+              "and RMS damage/breakdowns",
+              "and source damage/breakdown evidence where supplied"
+          )
+          marker = (
+              "Realistic Farm Finance brings a connected agricultural finance system to Farming Simulator 25, "
+              "designed to make farm growth carry realistic financial commitments and consequences.\n\n"
+          )
+          insert = (
+              "TESTING 1.1.32.7 - REALISTIC MECHANICAL SYSTEMS INTEGRATION\n"
+              "Realistic Mechanical Systems now replaces Advanced Damage System as RFF's optional mechanical authority. "
+              "RFF reads RMS condition, service level, breakdowns, maintenance history, complete inspections and "
+              "dealer repair/service pricing for fleet records, roadworthiness, asset returns/recoveries and insured "
+              "own-damage evidence. Existing RFF save fields with legacy ads-prefixed names remain unchanged internally "
+              "so current saves continue to load. Do not run RMS and Advanced Damage System together.\n\n"
+          )
+          if marker not in s:
+              raise SystemExit("modDesc description anchor not found")
+          s = s.replace(marker, marker + insert, 1)
+          p.write_text(s, encoding="utf-8", newline="\n")
+
+          # Build a compact patch tree containing only files changed by the RMS pass.
+          patch_root = Path("rff_rms_patch")
+          changed = [
+              "modDesc.xml",
+              "translations/translation_en.xml",
+              "scripts/RMSIntegration.lua",
+              "scripts/Main.lua",
+              "scripts/VehicleComplianceService.lua",
+              "scripts/FleetManagementService.lua",
+              "scripts/AssetFinanceService.lua",
+              "scripts/DealershipService.lua",
+              "scripts/DealershipShop.lua",
+              "scripts/InsuranceClaimService.lua",
+          ]
+          import shutil
+          for rel in changed:
+              src = root / rel
+              dst = patch_root / rel
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dst)
+
+          audit = """# RFF -> RMS integration audit
+
+Build target: Realistic Farm Finance 1.1.32.7  
+Donor: RFF 1.1.32.5  
+Mechanical provider: Realistic Mechanical Systems 0.10.0.0
+
+## Live provider changes
+- RFF now loads scripts/RMSIntegration.lua.
+- Live specialization: vehicle.spec_RealisticMechanicalSystems.
+- Required mod detection: FS25_RealisticMechanicalSystems.
+- RMS/ADS simultaneous-load conflict is treated as RMS unavailable.
+- RMS constants are used for maintenance, complete inspection, repair, OEM parts and dealer workshop.
+- Dealer handover records a zero-charge RMS complete inspection and standard OEM service.
+- Fleet records read RMS inspection date, maintenance date, service interval and hours since maintenance.
+- Technical assessments read RMS condition, service level, active breakdowns and dealer-standard repair/service pricing.
+- Insurance own-damage evidence reads the RMS maintenance log after the collision checkpoint and requires a complete inspection plus OEM repair.
+
+## RMS API mapping
+- spec_AdvancedDamageSystem -> spec_RealisticMechanicalSystems
+- ads_spec_state_maintenance -> rms_spec_state_maintenance
+- ads_spec_state_inspection -> rms_spec_state_inspection
+- ads_spec_state_repair -> rms_spec_state_repair
+- ads_spec_maintenance_standard -> rms_spec_maintenance_standard
+- ads_spec_inspection_complete -> rms_spec_inspection_complete
+- ads_spec_repair_type_replacement -> rms_spec_repair_type_replacement
+- ads_spec_part_types_oem -> rms_spec_part_types_oem
+- ads_spec_workshop_dealer -> rms_spec_workshop_dealer
+- getConditionLevel -> getConditionLevel
+- getServiceLevel -> getServiceLevel
+- getActiveBreakdowns -> getActiveBreakdowns
+- getServicePrice -> getServicePrice
+- addEntryToMaintenanceLog -> addEntryToMaintenanceLog
+- getLastInspectionDate -> getLastInspectionDate
+- getLastMaintenanceDate -> getLastMaintenanceDate
+- getMaintenanceInterval -> getMaintenanceInterval
+- getHoursSinceLastMaintenance -> getHoursSinceLastMaintenance
+
+## Save compatibility
+Legacy ads-prefixed RFF save fields and status values are deliberately retained. Their names are historical schema identifiers only; new live data is sourced from RMS. This avoids a forced migration of existing finance agreements and claims.
+
+## Known boundary
+Traffic Courtesy may still expose legacy adsSource* incident fields through its own API. RFF preserves those fields for source compatibility, while its post-collision inspection/repair evidence now comes from RMS.
+"""
+          Path("RFF_RMS_INTEGRATION_AUDIT.md").write_text(audit, encoding="utf-8")
+          PY
+
+      - name: Static validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root = Path(".rff_work")
+          ET.parse(root / "modDesc.xml")
+          ET.parse(root / "translations" / "translation_en.xml")
+          for p in (root / "gui").glob("*.xml"):
+              ET.parse(p)
+          main = (root / "scripts" / "Main.lua").read_text(encoding="utf-8")
+          rms = (root / "scripts" / "RMSIntegration.lua").read_text(encoding="utf-8")
+          assert "scripts/RMSIntegration.lua" in main
+          assert "scripts/ADSIntegration.lua" not in main
+          assert "spec_RealisticMechanicalSystems" in rms
+          assert "FS25_RealisticMechanicalSystems" in rms
+          assert "rms_spec_state_maintenance" in rms
+          assert "RFF_RMSIntegration:getTechnicalAssessment" in rms
+          assert not (root / "scripts" / "ADSIntegration.lua").exists()
+          # Only the explicit legacy alias is allowed to reference RFF_ADSIntegration.
+          refs = []
+          for p in root.rglob("*.lua"):
+              for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+                  if "RFF_ADSIntegration" in line:
+                      refs.append((str(p), i, line.strip()))
+          assert len(refs) == 1 and refs[0][0].endswith("RMSIntegration.lua"), refs
+          print("XML/integration assertions passed")
+          PY
+
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lua5.4 >/dev/null
+          find .rff_work/scripts -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
+          echo "Lua syntax validation passed"
+
+      - name: Build test ZIP and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p builds
+          (
+            cd .rff_work
+            zip -qr ../builds/FS25_DM_RealisticFarmFinance_RMS_1.1.32.7.zip .
+          )
+          sha256sum builds/FS25_DM_RealisticFarmFinance_RMS_1.1.32.7.zip > builds/FS25_DM_RealisticFarmFinance_RMS_1.1.32.7.sha256
+          unzip -t builds/FS25_DM_RealisticFarmFinance_RMS_1.1.32.7.zip >/dev/null
+          echo "ZIP integrity validation passed"
+
+      - name: Commit converted build and patch set
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .rff_work
+          rm -f .github/workflows/rff-rms-one-shot.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A .github/workflows/rff-rms-one-shot.yml RFF_RMS_INTEGRATION_AUDIT.md rff_rms_patch
+          git add -f builds/FS25_DM_RealisticFarmFinance_RMS_1.1.32.7.zip builds/FS25_DM_RealisticFarmFinance_RMS_1.1.32.7.sha256
+          git commit -m "Convert Realistic Farm Finance integration from ADS to RMS"
+          git push origin HEAD:rff-rms-integration
